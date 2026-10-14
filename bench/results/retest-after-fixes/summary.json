@@ -1,0 +1,183 @@
+{
+  "total_rows": 8,
+  "valid_runs": 8,
+  "infra_failures": 0,
+  "dry_run": false,
+  "systems": {
+    "codex-youxpc": {
+      "runs": 4,
+      "successes": 3,
+      "success_rate": 0.75,
+      "wall_seconds_median_successful": 21.38,
+      "wall_seconds_mean_successful": 20.19,
+      "total_tokens_median_successful": 22550,
+      "tool_calls_median_successful": 5,
+      "n_with_tokens_successful": 3,
+      "n_with_tool_calls_successful": 3,
+      "wall_seconds_median_all": 22.134999999999998,
+      "wall_seconds_mean_all": 39.585,
+      "total_tokens_median_all": 20891.5,
+      "tool_calls_median_all": 5.5,
+      "n_with_tokens_all": 4,
+      "n_with_tool_calls_all": 4,
+      "cost_usd_total": null,
+      "runs_with_cost": 0,
+      "pointer_counts_total": {
+        "virtual": 28,
+        "system-returned": 0,
+        "system": 0
+      },
+      "runs_with_pointer_data": 4,
+      "desktop_evidence_true": 1,
+      "desktop_evidence_of": 2,
+      "timeouts": 0
+    },
+    "codex-youxpc-simple": {
+      "runs": 4,
+      "successes": 3,
+      "success_rate": 0.75,
+      "wall_seconds_median_successful": 24.25,
+      "wall_seconds_mean_successful": 22.96333333333333,
+      "total_tokens_median_successful": 16953,
+      "tool_calls_median_successful": 5,
+      "n_with_tokens_successful": 3,
+      "n_with_tool_calls_successful": 3,
+      "wall_seconds_median_all": 21.045,
+      "wall_seconds_mean_all": 21.6825,
+      "total_tokens_median_all": 17643.0,
+      "tool_calls_median_all": 3.5,
+      "n_with_tokens_all": 4,
+      "n_with_tool_calls_all": 4,
+      "cost_usd_total": null,
+      "runs_with_cost": 0,
+      "pointer_counts_total": {
+        "virtual": 0,
+        "system-returned": 0,
+        "system": 0
+      },
+      "runs_with_pointer_data": 4,
+      "desktop_evidence_true": 1,
+      "desktop_evidence_of": 2,
+      "timeouts": 0
+    }
+  },
+  "per_task": {
+    "calc-chain": {
+      "codex-youxpc": {
+        "runs": 2,
+        "successes": 1,
+        "success_rate": 0.5,
+        "wall_seconds_median_successful": 16.3,
+        "wall_seconds_mean_successful": 16.3,
+        "total_tokens_median_successful": 28848,
+        "tool_calls_median_successful": 3,
+        "n_with_tokens_successful": 1,
+        "n_with_tool_calls_successful": 1,
+        "wall_seconds_median_all": 57.035,
+        "wall_seconds_mean_all": 57.035,
+        "total_tokens_median_all": 24040.5,
+        "tool_calls_median_all": 12.0,
+        "n_with_tokens_all": 2,
+        "n_with_tool_calls_all": 2,
+        "cost_usd_total": null,
+        "runs_with_cost": 0,
+        "pointer_counts_total": {
+          "virtual": 20,
+          "system-returned": 0,
+          "system": 0
+        },
+        "runs_with_pointer_data": 2,
+        "desktop_evidence_true": 1,
+        "desktop_evidence_of": 2,
+        "timeouts": 0
+      },
+      "codex-youxpc-simple": {
+        "runs": 2,
+        "successes": 1,
+        "success_rate": 0.5,
+        "wall_seconds_median_successful": 15.37,
+        "wall_seconds_mean_successful": 15.37,
+        "total_tokens_median_successful": 18333,
+        "tool_calls_median_successful": 2,
+        "n_with_tokens_successful": 1,
+        "n_with_tool_calls_successful": 1,
+        "wall_seconds_median_all": 16.605,
+        "wall_seconds_mean_all": 16.605,
+        "total_tokens_median_all": 22404.5,
+        "tool_calls_median_all": 2.0,
+        "n_with_tokens_all": 2,
+        "n_with_tool_calls_all": 2,
+        "cost_usd_total": null,
+        "runs_with_cost": 0,
+        "pointer_counts_total": {
+          "virtual": 0,
+          "system-returned": 0,
+          "system": 0
+        },
+        "runs_with_pointer_data": 2,
+        "desktop_evidence_true": 1,
+        "desktop_evidence_of": 2,
+        "timeouts": 0
+      }
+    },
+    "web-checkbox-select": {
+      "codex-youxpc": {
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "wall_seconds_median_successful": 22.134999999999998,
+        "wall_seconds_mean_successful": 22.134999999999998,
+        "total_tokens_median_successful": 20734.5,
+        "tool_calls_median_successful": 5.5,
+        "n_with_tokens_successful": 2,
+        "n_with_tool_calls_successful": 2,
+        "wall_seconds_median_all": 22.134999999999998,
+        "wall_seconds_mean_all": 22.134999999999998,
+        "total_tokens_median_all": 20734.5,
+        "tool_calls_median_all": 5.5,
+        "n_with_tokens_all": 2,
+        "n_with_tool_calls_all": 2,
+        "cost_usd_total": null,
+        "runs_with_cost": 0,
+        "pointer_counts_total": {
+          "virtual": 8,
+          "system-returned": 0,
+          "system": 0
+        },
+        "runs_with_pointer_data": 2,
+        "desktop_evidence_true": null,
+        "desktop_evidence_of": 0,
+        "timeouts": 0
+      },
+      "codex-youxpc-simple": {
+        "runs": 2,
+        "successes": 2,
+        "success_rate": 1.0,
+        "wall_seconds_median_successful": 26.759999999999998,
+        "wall_seconds_mean_successful": 26.759999999999998,
+        "total_tokens_median_successful": 16281.5,
+        "tool_calls_median_successful": 5.0,
+        "n_with_tokens_successful": 2,
+        "n_with_tool_calls_successful": 2,
+        "wall_seconds_median_all": 26.759999999999998,
+        "wall_seconds_mean_all": 26.759999999999998,
+        "total_tokens_median_all": 16281.5,
+        "tool_calls_median_all": 5.0,
+        "n_with_tokens_all": 2,
+        "n_with_tool_calls_all": 2,
+        "cost_usd_total": null,
+        "runs_with_cost": 0,
+        "pointer_counts_total": {
+          "virtual": 0,
+          "system-returned": 0,
+          "system": 0
+        },
+        "runs_with_pointer_data": 2,
+        "desktop_evidence_true": null,
+        "desktop_evidence_of": 0,
+        "timeouts": 0
+      }
+    }
+  },
+  "infra_failure_list": []
+}

@@ -14,7 +14,7 @@ agents/
 skills/
 
 # Release artifacts
-ghost-os-*.tar.gz
+youxpc-*.tar.gz
 
 # Python
 __pycache__/
@@ -25,3 +25,10 @@ __pycache__/
 vision-sidecar/build/
 vision-sidecar/dist/
 *.spec
+
+# Demo recording: compiled helpers and raw captures
+launch/video/winmove
+launch/video/caption
+launch/video/out/*-raw.mov
+.build-dev/
+youxpc-*.tar.gz.sha256

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order options</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:42rem}label{display:block;margin:.75rem 0 .25rem}input,select,button{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}</style>
+</head>
+<body data-page="web-checkbox-select">
+<main>
+<h1>Order options</h1>
+<form id="f">
+<div class="row">
+<input id="express" name="express" type="checkbox">
+<label for="express" style="display:inline">Express shipping</label>
+</div>
+<div class="row">
+<label for="colour">Colour</label>
+<select id="colour" name="colour">
+<option value="">Choose a colour</option>
+<option>Red</option>
+<option>Green</option>
+<option>Blue</option>
+<option>Yellow</option>
+</select>
+</div>
+<div class="row"><button type="submit">Save</button></div>
+</form>
+<p id="status" role="status"></p>
+</main>
+<script src="_common.js"></script>
+<script>
+document.getElementById('f').addEventListener('submit', function (e) {
+  e.preventDefault();
+  rec({ event: 'save', express: document.getElementById('express').checked,
+        colour: document.getElementById('colour').value });
+  document.getElementById('status').textContent = 'Options saved.';
+});
+</script>
+</body>
+</html>

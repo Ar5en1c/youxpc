@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device pairing</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:46rem}label{display:block;margin:.75rem 0 .25rem}input,select,button,textarea{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}table{border-collapse:collapse}td,th{padding:.35rem .8rem;border-bottom:1px solid #ddd;text-align:left}.inline{display:inline}[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}.modal>div{background:#fff;padding:1.5rem;border-radius:8px;min-width:18rem}[role=tab][aria-selected=true]{font-weight:700;border-bottom:3px solid #333}</style>
+</head>
+<body data-page="web-reveal-enter">
+<main>
+<h1>Device pairing</h1>
+<p>Press the button to get a pairing code, then enter that code below.</p>
+<button id="show" type="button">Show pairing code</button>
+<p id="code" role="status"></p>
+<form id="f">
+<label for="entry">Pairing code</label><input id="entry" type="text" autocomplete="off">
+<div class="row"><button type="submit">Pair device</button></div>
+</form>
+<p id="status" role="status"></p>
+</main>
+<script src="_common.js"></script>
+<script>
+document.getElementById('show').addEventListener('click', function () {
+  document.getElementById('code').textContent = 'Generating…';
+  rec({ event: 'show' });
+  setTimeout(function () { document.getElementById('code').textContent = 'Your pairing code is 58-2046-KM.'; }, 1200);
+});
+document.getElementById('f').addEventListener('submit', function (e) {
+  e.preventDefault();
+  var v = document.getElementById('entry').value.trim();
+  rec({ event: 'pair', value: v });
+  document.getElementById('status').textContent = v === '58-2046-KM' ? 'Device paired.' : 'That code is not right.';
+});
+</script>
+</body>
+</html>

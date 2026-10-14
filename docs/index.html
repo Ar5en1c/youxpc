@@ -1,0 +1,1338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouxPC: give your AI agent its own cursor</title>
+<meta name="description" content="An open-source MCP server for macOS. Your agent reads each window as a short numbered list and presses the controls itself. Your pointer never moves.">
+<meta property="og:title" content="YouxPC: give your AI agent its own cursor">
+<meta property="og:description" content="Open source, local, any MCP agent. It reads Mac windows as numbered text and presses controls through accessibility.">
+<meta name="theme-color" content="#100e0c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 2l15 8.2-6.6 1.9-2 6.9z' fill='%23ff8a1f' stroke='%23100e0c' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link href="https://fonts.bunny.net/css?family=bricolage-grotesque:400,500,600,800|jetbrains-mono:400,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --coal:#100e0c; --soot:#1a1713; --ash:#2b2722;
+  --bone:#f5efe4; --stone:#b9af9e; --fog:#84796b;
+  --flare:#ff8a1f; --flare-hi:#ffc673; --flare-lo:#c63b06; --on-flare:#1b0d00;
+  --chalk:#e9e6df; --chalk-ink:#1a1712; --chalk-soft:#5c5548;
+  --good:#6fe3a5; --stop:#ff6b57;
+  --bg:var(--coal); --fg:var(--bone); --soft:var(--stone); --dim:var(--fog); --line:rgba(245,239,228,.15); --panel:var(--soot); --accent:var(--flare-hi);
+  --text:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;background:var(--coal)}
+body{margin:0;color:var(--fg);background:var(--coal);font:400 17px/1.55 var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:4px}
+a:hover{color:var(--accent)}
+:focus-visible{outline:2px solid var(--flare);outline-offset:3px;border-radius:6px}
+::selection{background:var(--flare);color:var(--on-flare)}
+code,pre,.mono{font-family:var(--mono);font-size:.84em}
+h1,h2,h3{font-weight:800;letter-spacing:-.035em;line-height:.98;margin:0}
+h1{font-size:clamp(2.5rem,5.6vw,5.4rem)}
+h2{font-size:clamp(2.1rem,4.8vw,3.9rem);max-width:15ch}
+h3{font-size:1.35rem;letter-spacing:-.02em;line-height:1.12}
+p{margin:0 0 1em;max-width:62ch}
+.wrap{position:relative;max-width:78rem;margin:0 auto;padding:0 1.5rem;z-index:2}
+.lead{font-size:1.2rem;color:var(--soft);margin:0;max-width:52ch}
+.soft{color:var(--soft)}
+#gl{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:3;filter:drop-shadow(0 26px 46px rgba(255,110,20,.42))}
+
+/* colour bands: dark is the page, chalk is for reading, flare is the agent */
+.band{position:relative;background:var(--bg);color:var(--fg);padding:5.5rem 0}
+.band.light{--bg:var(--chalk);--fg:var(--chalk-ink);--soft:var(--chalk-soft);--dim:#8a8274;--line:rgba(26,23,18,.17);--panel:#f3f1ec;--accent:#b53004}
+.band.flare{--bg:var(--flare);--fg:var(--on-flare);--soft:rgba(27,13,0,.78);--dim:rgba(27,13,0,.62);--line:rgba(27,13,0,.28);--panel:#ff9a3d;--accent:var(--on-flare)}
+.band.deep{--bg:#0a0908;--panel:#15120f}
+.dark{--fg:var(--bone);--soft:var(--stone);--dim:var(--fog);--line:rgba(245,239,228,.15);--accent:var(--flare-hi);color:var(--fg)}
+.sh{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:1.4rem 4rem;align-items:end}
+
+/* shared controls */
+.pill{display:inline-flex;align-items:center;gap:.5rem;font:inherit;font-size:.95rem;font-weight:600;color:var(--fg);background:transparent;border:1px solid var(--line);
+  border-radius:999px;padding:.55rem 1.05rem;cursor:pointer;text-decoration:none;transition:transform .25s var(--ease),background .25s,border-color .25s,color .25s}
+.pill:hover{background:var(--flare);border-color:var(--flare);color:var(--on-flare);transform:translateY(-2px)}
+.pill.solid{background:var(--flare);border-color:var(--flare);color:var(--on-flare);box-shadow:0 12px 32px -12px var(--flare)}
+.pill.solid:hover{background:var(--flare-hi);border-color:var(--flare-hi)}
+.band.flare .pill.solid{background:var(--on-flare);border-color:var(--on-flare);color:var(--flare);box-shadow:none}
+.band.flare .pill.solid:hover{background:var(--coal);color:var(--flare-hi)}
+.pill:active{transform:translateY(0) scale(.97)}
+.btn{font:inherit;font-size:.95rem;font-weight:600;padding:.6rem 1.15rem;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;transition:transform .2s var(--ease),background .2s,border-color .2s,color .2s}
+.btn:hover{border-color:var(--flare);background:var(--flare);color:var(--on-flare);transform:translateY(-2px)}
+.btn:active{transform:scale(.96)}
+.btn.main{background:var(--flare);border-color:var(--flare);color:var(--on-flare);min-width:7rem;box-shadow:0 12px 30px -14px var(--flare)}
+.btn.main:hover{background:var(--flare-hi);border-color:var(--flare-hi)}
+.btn:disabled{opacity:.35;cursor:default;transform:none;background:transparent;color:var(--fg);border-color:var(--line)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--flare);box-shadow:0 0 0 4px rgba(255,138,31,.25)}
+.controls{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-top:1.4rem}
+.where{color:var(--dim);font-size:.92rem;margin-left:.4rem}
+
+/* hero */
+.hero{padding:0;overflow:hidden;min-height:min(88vh,54rem);display:flex;flex-direction:column;background:radial-gradient(900px 560px at 82% 42%,rgba(255,110,20,.16),transparent 65%),var(--coal)}
+#dots{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.hero .wrap{flex:1;display:flex;flex-direction:column;width:100%}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.3rem 0}
+.brand{display:flex;align-items:center;gap:.55rem;font-weight:800;font-size:1.2rem;letter-spacing:-.03em;text-decoration:none}
+.brand svg{filter:drop-shadow(0 4px 10px rgba(255,138,31,.7))}
+.nav nav{display:flex;align-items:center;gap:1.5rem;font-size:.98rem}
+.nav nav a{text-decoration:none;color:var(--soft)}
+.nav nav a:hover{color:var(--fg)}
+.nav nav a.pill{color:var(--fg)}
+.nav nav a.pill:hover{color:var(--on-flare)}
+.hero-grid{flex:1;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:2rem;align-items:center;padding:1rem 0 3.4rem}
+.hero-grid > div{min-width:0}
+.hero h1 span{display:block;white-space:nowrap}
+.hero h1 .quiet{color:rgba(245,239,228,.34)}
+.hero .lead{font-size:1.25rem;margin-top:1.4rem}
+.cmd{display:flex;align-items:stretch;margin-top:2rem;max-width:40rem;border-radius:14px;background:rgba(0,0,0,.5);border:1px solid var(--line);overflow:hidden;backdrop-filter:blur(10px);
+  box-shadow:0 0 0 1px rgba(255,138,31,0),0 30px 60px -30px #000;transition:box-shadow .3s}
+.cmd:hover{box-shadow:0 0 0 1px rgba(255,138,31,.7),0 30px 60px -30px #000}
+.cmd code{flex:1;min-width:0;padding:1rem 1.1rem;white-space:nowrap;overflow-x:auto;scrollbar-width:none;color:var(--flare-hi)}
+.cmd code::-webkit-scrollbar{display:none}
+.cmd code b{color:var(--dim);font-weight:400}
+.cmd button{font:inherit;font-weight:600;font-size:.92rem;color:var(--fg);background:rgba(255,138,31,.16);border:0;border-left:1px solid var(--line);padding:0 1.2rem;cursor:pointer;min-width:5.6rem;transition:background .2s,color .2s}
+.cmd button:hover{background:var(--flare);color:var(--on-flare)}
+.cmd button.ok{background:var(--good);color:#07301f}
+.hero-links{display:flex;gap:.8rem;flex-wrap:wrap;margin-top:1.1rem;align-items:center}
+.hero-links small{color:var(--dim);font-size:.9rem}
+.hero-proof{margin:1.7rem 0 0;padding-left:1rem;border-left:3px solid var(--flare);max-width:40rem;font-size:1rem;line-height:1.5;color:var(--soft)}
+.hero-proof:empty{display:none}
+.hero-proof b{color:var(--bone);font-weight:700}
+.hero-proof a{color:var(--flare-hi);font-weight:600;white-space:nowrap}
+.cursor-home{position:relative;height:min(62vh,34rem)}
+.you{position:absolute;left:0;bottom:6%;display:flex;align-items:center;gap:.5rem;font-size:.9rem;color:var(--soft);z-index:4}
+.you svg{filter:drop-shadow(0 3px 6px rgba(0,0,0,.6))}
+.tag{position:absolute;right:2%;top:10%;font-family:var(--mono);font-size:.8rem;color:var(--flare-hi);border:1px solid rgba(255,198,115,.45);border-radius:8px;padding:.25rem .55rem;background:rgba(255,138,31,.12);z-index:4}
+.ticker{position:relative;z-index:2;border-top:1px solid var(--line);overflow:hidden;white-space:nowrap;font-family:var(--mono);font-size:.8rem;color:var(--stone);background:rgba(16,14,12,.78);backdrop-filter:blur(6px)}
+.ticker div{display:inline-flex;gap:2.4rem;padding:.85rem 0;animation:tick 90s linear infinite}
+.ticker:hover div{animation-play-state:paused}
+.ticker b{color:var(--flare);font-weight:600}
+@keyframes tick{to{transform:translateX(-50%)}}
+
+/* the numbers, as a solid band of the agent's colour */
+.proof{padding:4.2rem 0}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2.2rem}
+.facts div{border-top:3px solid var(--on-flare);padding-top:1.1rem}
+.facts b{display:block;font-size:clamp(2.7rem,6.4vw,6.2rem);font-weight:800;letter-spacing:-.055em;line-height:.92;font-variant-numeric:tabular-nums}
+.facts span{display:block;margin-top:.9rem;font-size:1.08rem;line-height:1.35;max-width:27ch}
+.facts i{font-style:normal}
+.facts em{font-style:normal;font-size:.34em;font-weight:600;letter-spacing:-.02em;margin-left:.05em;white-space:nowrap}
+
+/* the window pulled apart */
+.picker-row{display:flex;gap:.9rem;align-items:center;flex-wrap:wrap;margin-top:2.2rem}
+.picker{display:flex;gap:.5rem;flex-wrap:wrap}
+.picker button,.scope button{font:inherit;font-size:.95rem;font-weight:500;padding:.5rem 1rem;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--soft);cursor:pointer;transition:all .25s var(--ease)}
+.picker button:hover,.scope button:hover{color:var(--fg);border-color:var(--fg)}
+.picker button[aria-pressed=true],.scope button[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.ask{margin:1.2rem 0 0;max-width:none;color:var(--soft)}
+.ask b{color:var(--fg);font-weight:600}
+.scene{perspective:1900px;perspective-origin:50% 30%;margin-top:1.6rem}
+.rig{--t:1;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:1.3rem;align-items:stretch;transform-style:preserve-3d;transform-origin:50% 40%;
+  transform:rotateX(calc((1 - var(--t)) * 56deg)) rotateZ(calc((1 - var(--t)) * -26deg)) scale(calc(.78 + .22 * var(--t)));will-change:transform}
+.win{position:relative;transform-style:preserve-3d;transform:translateZ(calc((1 - var(--t)) * 24px))}
+.glass{position:relative;border-radius:14px;overflow:hidden;background:#fff;border:1px solid rgba(26,23,18,.18);box-shadow:0 46px 70px -38px rgba(26,23,18,.7),0 0 0 1px rgba(26,23,18,.05)}
+.chrome{display:flex;align-items:center;gap:.4rem;padding:.6rem .85rem;background:linear-gradient(#f6f4f0,#e8e5df);border-bottom:1px solid #d3cfc6;color:#5c5548;font-size:.8rem;font-family:var(--text)}
+.chrome i{width:11px;height:11px;border-radius:50%;background:#ff6259}
+.chrome i:nth-child(2){background:#ffbe2f}.chrome i:nth-child(3){background:#2aca44}
+.chrome span{margin-left:.5rem}
+.glass iframe{display:block;width:100%;height:440px;border:0;background:#fff}
+.chips{position:absolute;inset:0;pointer-events:none;transform-style:preserve-3d;transform:translateZ(calc((1 - var(--t)) * 120px))}
+.chip{position:absolute;left:0;top:0;font-family:var(--mono);font-size:11px;font-weight:600;line-height:1;color:var(--on-flare);background:var(--flare);border-radius:6px;padding:3px 5px;
+  box-shadow:0 6px 16px -4px rgba(150,50,0,.8);transform-style:preserve-3d;opacity:0;transition:opacity .3s,scale .35s var(--ease);scale:.4}
+.chip.in{opacity:1;scale:1}
+.chip.hot{background:var(--coal);color:var(--flare-hi);box-shadow:0 0 0 3px var(--flare),0 8px 20px -4px #000}
+.chip i{position:absolute;left:9px;top:100%;width:1.5px;height:calc((1 - var(--t)) * 120px);background:linear-gradient(var(--flare),rgba(255,138,31,.12));transform-origin:top;transform:rotateX(-90deg)}
+.agent{position:absolute;left:0;top:0;width:30px;height:30px;pointer-events:none;z-index:5;opacity:0;transition:transform .45s var(--ease),opacity .3s;transform:translate(40px,40px);filter:drop-shadow(0 8px 12px rgba(150,50,0,.65))}
+.agent.still{transition:none}
+.agent.shown{opacity:1}
+.agent.press::after{content:"";position:absolute;left:-10px;top:-10px;width:30px;height:30px;border-radius:50%;border:2px solid var(--flare);animation:ring .5s ease-out}
+@keyframes ring{from{transform:scale(.3);opacity:1}to{transform:scale(1.9);opacity:0}}
+.mine{position:absolute;right:14px;bottom:12px;display:flex;align-items:center;gap:.4rem;font-size:.76rem;color:#5c5548;background:rgba(255,255,255,.94);padding:.25rem .55rem .25rem .35rem;border-radius:8px;z-index:4;box-shadow:0 4px 14px -6px rgba(0,0,0,.4)}
+.read{display:flex;flex-direction:column;border-radius:14px;overflow:hidden;background:#13100d;border:1px solid rgba(245,239,228,.12);
+  transform:translate3d(calc((1 - var(--t)) * 26px),0,calc((1 - var(--t)) * 70px));box-shadow:0 46px 70px -42px rgba(26,23,18,.8)}
+.read header{display:flex;justify-content:space-between;padding:.6rem .95rem;border-bottom:1px solid var(--line);font-size:.8rem;color:var(--dim)}
+.listing{flex:1;min-height:220px;max-height:330px;overflow:auto;padding:.8rem .95rem;font-family:var(--mono);font-size:12.5px;line-height:1.62;white-space:pre;color:#e0d7c6;scrollbar-width:thin;scrollbar-color:var(--flare-lo) transparent}
+.listing .ln{display:block;border-radius:5px;padding:0 .35rem;margin:0 -.35rem;transition:background .25s}
+.listing .ln.on{background:rgba(255,138,31,.28);color:#fff;box-shadow:inset 3px 0 0 var(--flare)}
+.listing .ln.changed{animation:flash 1.2s ease-out}
+.listing .ln.gone{opacity:.35;text-decoration:line-through}
+.listing .id{color:var(--flare-hi);font-weight:600}
+.listing .empty{color:var(--dim);white-space:normal;font-family:var(--text);font-size:.95rem}
+@keyframes flash{from{background:rgba(111,227,165,.4)}to{background:transparent}}
+.wire{border-top:1px solid var(--line);padding:.75rem .95rem .9rem;font-family:var(--mono);font-size:12.5px;line-height:1.6;height:196px;overflow:auto;background:#0b0907;color:#e0d7c6;scrollbar-width:thin;scrollbar-color:var(--flare-lo) transparent}
+.wire .dir{display:block;font-family:var(--text);font-size:.78rem;color:var(--dim);margin:.55rem 0 .15rem}
+.wire .dir:first-child{margin-top:0}
+.wire .step{display:block;white-space:pre-wrap;word-break:break-word;opacity:.32}
+.wire .step.done{opacity:.9}
+.wire .step.now{opacity:1;color:#fff;text-shadow:0 0 14px var(--flare)}
+.wire .back{white-space:pre-wrap;word-break:break-word;color:var(--good)}
+.fact{margin-top:1.1rem;color:var(--soft);font-size:.98rem;max-width:none}
+.fact b{color:var(--fg);font-weight:600}
+
+/* four ideas, four different things to touch */
+.bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:1.1rem;margin-top:3rem}
+.cell{position:relative;border-radius:26px;border:1px solid var(--line);background:var(--panel);padding:1.9rem;overflow:hidden;--glow:rgba(255,138,31,.2);
+  transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .5s var(--ease),border-color .3s,opacity .8s var(--ease)}
+.cell::before{content:"";position:absolute;inset:0;background:radial-gradient(380px circle at var(--mx,50%) var(--my,0%),var(--glow),transparent 60%);opacity:0;transition:opacity .4s;pointer-events:none}
+.cell:hover::before{opacity:1}
+.cell.flare{background:var(--flare);border-color:transparent;color:var(--on-flare);--fg:var(--on-flare);--soft:rgba(27,13,0,.8);--dim:rgba(27,13,0,.6);--line:rgba(27,13,0,.3);--accent:var(--on-flare);--glow:rgba(255,255,255,.3)}
+.cell.chalk{background:var(--chalk);border-color:transparent;color:var(--chalk-ink);--fg:var(--chalk-ink);--soft:var(--chalk-soft);--dim:#8a8274;--line:rgba(26,23,18,.18);--accent:#b53004}
+.cell p{color:var(--soft);font-size:1rem;margin:.6rem 0 0}
+.cell{display:flex;flex-direction:column}
+.cell > .demo{flex:1}
+.cell > .snip{flex:1}
+.cell.wide{grid-column:span 7}.cell.narrow{grid-column:span 5}
+.cell h3 + p{max-width:46ch}
+.demo{margin-top:1.4rem;position:relative}
+.rows{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.rows h4{margin:0 0 .5rem;font-size:.82rem;font-weight:500;color:var(--dim)}
+.rowlist{display:grid;gap:.4rem}
+.rowitem{display:flex;justify-content:space-between;align-items:center;gap:.5rem;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:.5rem .7rem;font-size:.92rem;transition:all .5s var(--ease);overflow:hidden;max-height:3.2rem}
+.rowitem.out{max-height:0;padding-top:0;padding-bottom:0;opacity:0;border-width:0;margin-top:-.4rem}
+.rowitem code{font-weight:600;padding:.15rem .4rem;border-radius:6px;background:var(--flare);color:var(--on-flare);transition:background .3s}
+.rowitem code.moved{background:var(--stop);color:#fff;animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.verdict{margin-top:.8rem;font-size:.9rem;min-height:3.2em;color:var(--soft);max-width:none}
+.verdict b{color:var(--stop)}
+.keys{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:1.3rem}
+.key{width:3rem;height:3rem;border-radius:12px;display:grid;place-items:center;font-weight:600;font-size:1.1rem;background:var(--coal);color:var(--bone);box-shadow:0 5px 0 #000;transition:transform .09s,box-shadow .09s,background .2s,color .2s}
+.key.down{transform:translateY(4px);box-shadow:0 1px 0 #000;background:var(--bone);color:var(--coal)}
+.snip{margin:1.2rem 0 0;padding:.95rem 1.05rem;border-radius:14px;background:#0d0b09;border:1px solid rgba(245,239,228,.12);font-size:12.5px;line-height:1.7;white-space:pre-wrap;color:#e8dfce;overflow-x:auto;--fg:var(--bone);--dim:var(--fog)}
+.snip .add{color:var(--good)}.snip .del{color:var(--stop)}.snip .chg{color:var(--flare-hi)}.snip .k{color:var(--flare-hi)}.snip .p{color:var(--fog)}
+.snip .l{display:block;transition:opacity .35s,transform .35s var(--ease)}
+.snip .l.hide{opacity:0;transform:translateX(-8px)}
+.cell .controls{margin-top:1rem}
+.amb{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:1.1rem;margin-top:1.3rem;align-items:start}
+.amb-rows{list-style:none;margin:0;padding:0;display:grid;gap:.4rem}
+.amb-row{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.4rem .5rem .4rem .8rem;border:1px solid var(--line);border-radius:12px;background:#f6f4ef;font-size:.92rem;transition:background .3s,transform .3s var(--ease)}
+.amb-row button{display:inline-flex;gap:.45rem;align-items:center;font:inherit;font-size:.85rem;font-weight:600;border:0;border-radius:9px;padding:.3rem .6rem;background:var(--chalk-ink);color:var(--bone);cursor:pointer;transition:background .2s,color .2s,transform .15s}
+.amb-row button:hover{background:var(--flare);color:var(--on-flare)}
+.amb-row button:active{transform:scale(.95)}
+.amb-row code{color:var(--flare-hi);font-weight:600}
+.amb-row button:hover code{color:var(--on-flare)}
+.amb-row.done{background:var(--flare);border-color:var(--flare)}
+.amb-row.warn{animation:warn .9s ease-out}
+@keyframes warn{0%,100%{transform:none}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+.amb .snip{margin:0;min-height:11.5rem}
+.imitation{margin:1rem 0 0;font-size:.82rem;color:var(--dim);max-width:none}
+
+/* compared: one metric per chart, ours in colour, the rest neutral */
+.claim{max-width:21ch;font-size:clamp(1.9rem,3.9vw,3.2rem)}
+.seg{display:inline-flex;gap:.3rem;padding:.3rem;border:1px solid var(--line);border-radius:999px;margin-top:2.4rem;flex-wrap:wrap}
+.seg button{font:inherit;font-size:.95rem;font-weight:600;padding:.55rem 1.15rem;border-radius:999px;border:0;background:transparent;color:var(--soft);cursor:pointer;transition:background .25s var(--ease),color .25s}
+.seg button:hover{color:var(--fg)}
+.seg button[aria-pressed=true]{background:var(--bone);color:var(--coal)}
+.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.1rem;margin-top:1.3rem}
+.chart{display:flex;flex-direction:column;border:1px solid var(--line);background:var(--panel);border-radius:26px;padding:1.6rem 1.5rem 1.3rem}
+.chart h3{font-size:1.45rem}
+.chart .unit{margin:.3rem 0 1.5rem;color:var(--dim);font-size:.9rem}
+.bars{display:grid;gap:.85rem}
+.brow{display:grid;grid-template-columns:7.8rem minmax(0,1fr) 4.2rem;gap:.6rem;align-items:center}
+.bname{font-size:.93rem;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btrack{height:28px;border-radius:8px;background:rgba(255,255,255,.05);overflow:hidden}
+.bfill{height:100%;width:0;border-radius:8px;background:#6b6358;transition:width 1.2s var(--ease)}
+.go .bfill{width:var(--w)}
+.bval{font-variant-numeric:tabular-nums;font-weight:500;text-align:right;color:var(--soft);font-size:.95rem}
+.brow.us .bname{color:var(--flare-hi);font-weight:700}
+.brow.us .bfill{background:linear-gradient(90deg,var(--flare-lo),var(--flare),var(--flare-hi));box-shadow:0 0 26px rgba(255,138,31,.5)}
+.brow.us .bval{color:var(--flare-hi)}
+.brow.best .bval{color:var(--bone);font-weight:700}
+.brow.us.best .bval{color:var(--flare-hi)}
+.take{margin:auto 0 0;padding-top:1.3rem;font-size:.92rem;line-height:1.4;color:var(--soft);max-width:none}
+.take b{color:var(--bone);font-weight:600}
+.chart-foot{display:flex;gap:1.5rem;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:1.1rem}
+.chart-foot p{margin:0;color:var(--soft);font-size:.95rem;max-width:72ch}
+.more{margin-top:2.2rem;border:1px solid var(--line);border-radius:22px;padding:0 1.5rem}
+.more summary{cursor:pointer;list-style:none;padding:1.15rem 0;font-weight:700;font-size:1.05rem;display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.more summary::-webkit-details-marker{display:none}
+.more summary::after{content:"+";font-size:1.5rem;font-weight:400;color:var(--flare);line-height:1}
+.more[open] summary::after{content:"\2212"}
+.more[open]{padding-bottom:1.5rem}
+.more h4{margin:1.8rem 0 .4rem;font-size:.95rem;font-weight:600}
+.small{font-size:.88rem}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:.7rem .8rem;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;padding-left:0;white-space:normal}
+th{font-weight:500;font-size:.86rem;color:var(--dim)}
+td small{display:block;color:var(--dim);font-size:.8rem}
+tr.us td{font-weight:600;color:var(--flare-hi);background:rgba(255,138,31,.07)}
+#pertask td{color:var(--soft)}
+#pertask td.best{color:var(--bone);font-weight:700}
+#pertask td.us,#pertask th.us{background:rgba(255,138,31,.07)}
+#pertask td.miss span{color:var(--stop);font-size:.8rem;margin-left:.3rem}
+#pertask td.none{color:var(--dim)}
+.tag-hard{display:inline-block;margin-left:.45rem;font-size:.7rem;font-weight:600;color:var(--flare-hi);border:1px solid rgba(255,198,115,.4);border-radius:6px;padding:.05rem .35rem;vertical-align:middle}
+.caveat{margin-top:2rem;border-radius:20px;border:1px solid rgba(255,198,115,.4);background:rgba(255,138,31,.07);padding:1.5rem 1.7rem}
+.caveat h3{color:var(--flare-hi);font-size:1.05rem;margin-bottom:.6rem}
+.caveat p{font-size:.98rem;color:#e6dccb;margin:0 0 .6em;max-width:84ch}
+.caveat p:last-child{margin:0}
+.fail{margin:.4rem 0 1rem;border-top:1px solid rgba(255,198,115,.25);padding-top:.7rem}
+.fail summary{cursor:pointer;font-weight:600;color:var(--flare-hi)}
+.fail h4{margin:1.1rem 0 .1rem;font-size:.85rem;font-weight:600;color:var(--dim)}
+.fail .snip{margin:.4rem 0 0}
+.fail mark{background:rgba(255,138,31,.3);color:#fff;border-radius:4px;padding:0 .2rem}
+.fail .verdict{margin-top:1rem;min-height:0;color:#e6dccb;font-size:.95rem}
+
+/* what it will not touch */
+.guard{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:3rem;align-items:start;margin-top:2.6rem}
+.guard ul{margin:0;padding:0;list-style:none}
+.guard li{padding:1.1rem 0;border-bottom:1px solid var(--line);color:var(--soft)}
+.guard li:first-child{border-top:1px solid var(--line)}
+.guard li b{display:block;color:var(--fg);font-weight:700;font-size:1.08rem;margin-bottom:.2rem}
+.try{border-radius:18px;background:#0d0b09;border:1px solid rgba(245,239,228,.12);overflow:hidden;box-shadow:0 40px 70px -40px rgba(26,23,18,.8)}
+.try header{padding:.9rem 1rem .8rem;border-bottom:1px solid var(--line)}
+.try header small{display:block;color:var(--dim);margin-bottom:.55rem;font-size:.82rem}
+.apps{display:flex;flex-wrap:wrap;gap:.4rem}
+.apps button{font:inherit;font-size:.85rem;font-weight:500;padding:.3rem .7rem;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--soft);cursor:pointer;transition:all .2s var(--ease)}
+.apps button:hover{color:var(--fg);border-color:var(--fg)}
+.apps button[aria-pressed=true]{background:var(--bone);color:var(--coal);border-color:var(--bone)}
+.apps button.no[aria-pressed=true]{background:var(--stop);border-color:var(--stop);color:#240603}
+.try pre,.term pre{margin:0;padding:1rem 1.1rem 1.2rem;font-size:12.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:#e8dfce;min-height:9.5rem}
+.try .ok,.term .ok{color:var(--good)}.try .no,.term .no{color:var(--stop)}.try .p,.term .p{color:var(--fog)}.try .k{color:var(--flare-hi)}
+.term{margin-top:1.1rem;border-radius:18px;background:#0d0b09;border:1px solid rgba(245,239,228,.12);overflow:hidden}
+.term header{display:flex;gap:.4rem;padding:.7rem .9rem;border-bottom:1px solid var(--line)}
+.term header i{width:10px;height:10px;border-radius:50%;background:#3a342b}
+.term pre{min-height:10.5rem}
+
+/* install */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.1rem;margin-top:2.6rem}
+.stepc{border-radius:22px;border:1px solid var(--line);background:var(--panel);padding:1.6rem;display:flex;flex-direction:column}
+.stepc .n{font-family:var(--mono);color:var(--flare);font-size:.85rem}
+.stepc h3{margin:.5rem 0 .5rem}
+.stepc p{color:var(--soft);font-size:.96rem;margin:0}
+.copyline{margin-top:auto;padding-top:1.1rem}
+.copyline div{display:flex;border-radius:12px;background:#0d0b09;border:1px solid rgba(245,239,228,.12);overflow:hidden}
+.copyline code{flex:1;min-width:0;padding:.75rem .85rem;font-size:12px;line-height:1.6;color:var(--flare-hi);word-break:break-all}
+.copyline button{font:inherit;font-size:.8rem;font-weight:600;color:var(--bone);background:rgba(255,138,31,.16);border:0;border-left:1px solid var(--line);padding:0 .9rem;cursor:pointer;transition:background .2s,color .2s}
+.copyline button:hover{background:var(--flare);color:var(--on-flare)}
+.copyline button.ok{background:var(--good);color:#07301f}
+.limits{margin-top:3.2rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 3rem}
+.limits p{color:var(--soft);font-size:.96rem;padding:.85rem 0;border-bottom:1px solid var(--line);margin:0;max-width:none}
+
+/* close */
+.close{padding:5rem 0 0;overflow:hidden}
+.close h2{max-width:none;font-size:clamp(2.2rem,5.6vw,5rem)}
+.close .hero-links{margin-top:1.8rem}
+.mark{font-weight:800;font-size:clamp(4rem,21vw,22rem);letter-spacing:-.07em;line-height:.8;color:var(--on-flare);white-space:nowrap;text-align:center;margin-top:2.4rem;transform:translateY(12%);user-select:none}
+footer.band{padding:2.4rem 0 5rem;color:var(--dim);font-size:.92rem}
+footer p{max-width:none;color:var(--dim)}
+footer a{color:var(--soft)}
+
+/* agent view */
+.eye{position:fixed;left:1.2rem;bottom:1.2rem;z-index:20;background:rgba(16,14,12,.92);backdrop-filter:blur(10px);color:var(--bone);border-color:rgba(245,239,228,.2)}
+#agentview{position:fixed;inset:0;z-index:30;background:rgba(10,9,8,.96);backdrop-filter:blur(14px);display:none;overflow:auto;padding:5rem 1.5rem 4rem;color:var(--bone)}
+#agentview.open{display:block;animation:rise .45s var(--ease)}
+@keyframes rise{from{opacity:0;transform:perspective(1200px) rotateX(18deg) translateY(40px)}to{opacity:1;transform:none}}
+#agentview .inner{max-width:54rem;margin:0 auto}
+#agentview h2{font-size:clamp(1.6rem,3.4vw,2.4rem);max-width:none}
+#agentview .lead{margin-top:1rem;color:var(--stone)}
+#agentview pre{margin:1.6rem 0 0;font-size:13px;line-height:1.75;white-space:pre-wrap;color:#e0d7c6}
+#agentview pre a{color:var(--flare-hi);font-weight:600;text-decoration:none;cursor:pointer}
+#agentview pre a:hover{background:var(--flare);color:var(--on-flare);border-radius:4px}
+#agentview .close-btn{position:fixed;right:1.4rem;top:1.2rem;color:var(--bone)}
+.pulse{animation:pulse 1.4s ease-out}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,138,31,.95)}100%{box-shadow:0 0 0 26px rgba(255,138,31,0)}}
+[data-eid]{position:relative}
+[data-eid]::after{content:attr(data-eid);position:absolute;right:-6px;top:-9px;font:600 10px/1 var(--mono);color:var(--on-flare);background:var(--flare);padding:3px 4px;border-radius:5px;opacity:0;transform:translateY(4px) scale(.8);transition:all .25s var(--ease);pointer-events:none;z-index:6;letter-spacing:0}
+[data-eid]:hover::after,[data-eid]:focus-visible::after{opacity:1;transform:none}
+.band.flare [data-eid]::after{background:var(--on-flare);color:var(--flare)}
+
+.js .reveal{opacity:0;translate:0 26px;transition:opacity .8s var(--ease),translate .8s var(--ease)}
+.js .reveal.seen{opacity:1;translate:0 0}
+noscript p{margin:0;padding:1rem 1.5rem;background:var(--flare);color:var(--on-flare);max-width:none}
+
+@media (max-width: 900px){
+  .band{padding:4rem 0}
+  .hero h1 span{white-space:normal}
+  .hero{min-height:0}
+  .hero-grid{grid-template-columns:1fr;padding-bottom:2.4rem}
+  .cursor-home{height:13rem;order:-1}
+  .you{left:4%;bottom:0}
+  .tag{right:4%;top:6%}
+  .sh{grid-template-columns:1fr}
+  .facts{grid-template-columns:1fr}
+  .rig{grid-template-columns:1fr;transform:none}
+  .win,.read,.chips{transform:none}
+  .chip i{display:none}
+  .cell.wide,.cell.narrow{grid-column:span 12}
+  .rows,.amb{grid-template-columns:1fr}
+  .charts{grid-template-columns:1fr}
+  .brow{grid-template-columns:5.6rem minmax(0,1fr) 3.4rem}
+  .seg{border-radius:20px}
+  .guard,.steps,.limits{grid-template-columns:1fr}
+  .nav nav a.hide{display:none}
+  .eye{font-size:.82rem}
+}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  .ticker div,.listing .ln.changed,.agent.press::after,.amb-row.warn{animation:none}
+  .agent,.reveal,.cell,.bfill{transition:none}
+  .js .reveal{opacity:1;translate:0 0}
+  .rig,.win,.read,.chips{transform:none}
+  .chip i{display:none}
+}
+</style>
+</head>
+<body>
+<noscript><p>The replay and the demos on this page need JavaScript. The text, the install steps and the benchmark write-up work without it.</p></noscript>
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<header class="band hero" id="top">
+  <canvas id="dots" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div class="nav">
+      <a class="brand" href="#top">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 2l15 8.2-6.6 1.9-2 6.9z" fill="#ff8a1f" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        YouxPC
+      </a>
+      <nav aria-label="On this page">
+        <a class="hide" href="#apart">How it works</a>
+        <a class="hide" href="#compare">Compared</a>
+        <a class="hide" href="#install">Install</a>
+        <a class="pill" href="https://github.com/Ar5en1c/youxpc">Star on GitHub</a>
+      </nav>
+    </div>
+    <div class="hero-grid">
+      <div>
+        <h1><span>Give your AI agent</span><span>its own cursor.</span><span class="quiet">Yours never moves.</span></h1>
+        <p class="lead">YouxPC lets Claude Code, Codex or any MCP agent work your Mac apps. It reads each window as a short numbered list and presses the controls itself, while you keep working. Open source, and it runs on your Mac.</p>
+        <div class="cmd">
+          <code id="cmd"><b>$ </b>curl -fsSL https://raw.githubusercontent.com/Ar5en1c/youxpc/main/install.sh | bash</code>
+          <button type="button" id="copy" aria-label="Copy the install command">Copy</button>
+        </div>
+        <div class="hero-links">
+          <a class="pill solid" href="#apart">Watch a real run</a>
+          <a class="pill" href="#install">Other ways to install</a>
+          <small>macOS 14 or later</small>
+        </div>
+        <p class="hero-proof" id="hero-proof"></p>
+      </div>
+      <div class="cursor-home" id="home" aria-hidden="true">
+        <span class="tag">the agent's</span>
+        <span class="you">
+          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 2l15 8.2-6.6 1.9-2 6.9z" fill="#fff" stroke="#100e0c" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          yours, exactly where you left it
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="ticker" aria-hidden="true"><div id="ticker"></div></div>
+</header>
+
+<main id="main">
+<section class="band flare proof" id="proof" aria-label="The numbers">
+  <div class="wrap"><div class="facts reveal" id="facts"></div></div>
+</section>
+
+<section class="band light" id="apart" aria-labelledby="apart-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <h2 id="apart-h">Under every window there is a list.</h2>
+      <p class="lead">Your screen is pixels. Underneath, macOS keeps a description of every button and field. YouxPC hands that to the agent with an id on each control, and presses by id.</p>
+    </div>
+    <div class="picker-row reveal"><span class="soft">Pick a recorded run</span><div class="picker" id="picker" role="group" aria-label="Choose a recorded run"></div></div>
+    <p class="ask" id="ask"></p>
+    <div class="scene" id="scene">
+      <div class="rig" id="rig">
+        <div class="win" id="win">
+          <div class="glass">
+            <div class="chrome"><i></i><i></i><i></i><span id="win-title"></span></div>
+            <iframe id="app" title="The app being operated" tabindex="-1"></iframe>
+            <div class="mine" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 2l15 8.2-6.6 1.9-2 6.9z" fill="#15171c" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+              your pointer, not moved
+            </div>
+          </div>
+          <div class="chips" id="chips" aria-hidden="true"></div>
+          <div class="agent still" id="agent" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24"><defs><linearGradient id="ag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc673"/><stop offset="1" stop-color="#ff5a0a"/></linearGradient></defs><path d="M5 2l15 8.2-6.6 1.9-2 6.9z" fill="url(#ag)" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="read dark">
+          <header><span>what the agent reads</span><span id="see-title"></span></header>
+          <div class="listing" id="listing" tabindex="0" aria-label="The window as the agent reads it"></div>
+          <div class="wire" id="wire" tabindex="0" aria-live="polite" aria-label="Calls and answers"></div>
+        </div>
+      </div>
+    </div>
+    <div class="controls">
+      <button type="button" class="btn main" id="play">Play</button>
+      <button type="button" class="btn" id="back">Back</button>
+      <button type="button" class="btn" id="next">Next step</button>
+      <button type="button" class="btn" id="restart">Start over</button>
+      <button type="button" class="btn" id="explode">Pull it apart</button>
+      <span class="where" id="where"></span>
+    </div>
+    <p class="fact" id="fact"></p>
+    <p class="fact">These are real runs from the benchmark, replayed step by step with the calls and answers exactly as recorded. A web page cannot control your Mac, so nothing here is happening live.</p>
+  </div>
+</section>
+
+<section class="band" id="ideas" aria-labelledby="ideas-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <h2 id="ideas-h">Four ideas that make it dependable.</h2>
+      <p class="lead">Each demo here is a small imitation of the rule, so you can poke at it. The real behaviour is described in the README.</p>
+    </div>
+    <div class="bento">
+      <article class="cell wide reveal">
+        <h3>An id stays with its control</h3>
+        <p>Most tools number things by position. Remove one row and every number after it now means something else. Try it.</p>
+        <div class="demo">
+          <div class="rows">
+            <div><h4>Numbered by position</h4><div class="rowlist" id="rows-bad"></div></div>
+            <div><h4>YouxPC</h4><div class="rowlist" id="rows-good"></div></div>
+          </div>
+          <div class="controls">
+            <button type="button" class="btn main" id="row-go">Approve the first request</button>
+            <button type="button" class="btn" id="row-reset">Reset</button>
+          </div>
+          <p class="verdict" id="verdict"></p>
+        </div>
+      </article>
+      <article class="cell flare narrow reveal">
+        <h3>One decision, many actions</h3>
+        <p>Most of a run is the model thinking between calls. <code>pc_do</code> lets one thought carry a whole sum or a whole form.</p>
+        <div class="keys" id="keys" aria-hidden="true"></div>
+        <pre class="snip" id="do-snip"></pre>
+      </article>
+      <article class="cell narrow reveal">
+        <h3>It says what changed</h3>
+        <p>Every action answers with the lines that were added, removed or changed once the screen settles. No second look needed.</p>
+        <pre class="snip" id="chg-snip" aria-live="polite"></pre>
+        <div class="controls"><button type="button" class="btn main" id="chg-go">Press Register</button></div>
+      </article>
+      <article class="cell chalk wide reveal">
+        <h3>A name shared by six buttons is refused, not guessed</h3>
+        <p>Ask it to press "Approve" when six rows have one and it stops and lists them, each with its row, instead of pressing the first. Press a row's own id and it goes straight there.</p>
+        <div class="amb">
+          <ul class="amb-rows" id="amb-rows"></ul>
+          <div>
+            <pre class="snip" id="amb-out" aria-live="polite"></pre>
+            <div class="controls"><button type="button" class="btn main" id="amb-name">Ask for "Approve" by name</button><button type="button" class="btn" id="amb-reset">Reset</button></div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="band deep race" id="compare" aria-labelledby="race-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <h2 id="race-h" class="claim">Nearly twice as fast as the other desktop tools, on a fraction of the tokens.</h2>
+      <p class="lead">Four tools, the same 17 tasks, three runs each, one model on one Mac. A run counts only if the app or page itself shows the right result, not if the model says it did.</p>
+    </div>
+    <div class="seg reveal" id="scope" role="group" aria-label="Which tasks to count">
+      <button type="button" data-scope="all" aria-pressed="true">All 17 tasks</button>
+      <button type="button" data-scope="web" aria-pressed="false">The 13 web tasks, with Playwright MCP</button>
+    </div>
+    <div class="charts" id="charts"></div>
+    <div class="chart-foot">
+      <p id="chart-note"></p>
+      <button type="button" class="btn" id="replay">Replay the bars</button>
+    </div>
+    <details class="more">
+      <summary>Every task, with calls and totals</summary>
+      <p class="soft" id="num-intro"></p>
+      <h4>Totals</h4>
+      <div class="scroll"><table id="totals"></table></div>
+      <h4>Seconds per task, averaged over three runs</h4>
+      <div class="scroll"><table id="pertask"></table></div>
+      <p class="soft small">Bold is the quickest tool that passed every run of that task, whoever it is. A red mark means that tool failed some of its runs. Seven of the seventeen tasks are the harder ones I wrote and prepared YouxPC against; they are tagged.</p>
+    </details>
+    <div class="caveat">
+      <h3>Read these with care</h3>
+      <p>I wrote seven of the seventeen tasks and fixed YouxPC against them by hand before any model ran them. The other tools ran as installed, with no tuning, by someone who had never configured them.</p>
+      <p>Cua Driver passed every run, one more than YouxPC. Playwright MCP is as good or better on web pages; it drives its own browser and cannot reach desktop apps. YouxPC's one failed run is shown here, as recorded.</p>
+      <details class="fail"><summary>See the run YouxPC failed</summary><div id="fail-body"></div></details>
+      <p>One model, one Mac, one day. Every run and every failure is in <a href="https://github.com/Ar5en1c/youxpc/blob/main/bench/RESULTS.md">the full write-up</a>, with the command to repeat it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band light" id="safe" aria-labelledby="safe-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <h2 id="safe-h">What it will not touch.</h2>
+      <p class="lead">Accessibility access is all or nothing at the operating-system level, so the narrowing happens in YouxPC. Pick an app and see what an agent gets back.</p>
+    </div>
+    <div class="guard">
+      <ul class="reveal">
+        <li><b>Blocked apps</b>Password managers, Keychain Access, System Settings, permission prompts, terminals and the app hosting the agent are refused by default. You can switch to a strict allowlist.</li>
+        <li><b>A never-press list you set</b>Give it words such as Send, Delete or Pay and any control named with one is refused. It is off until you set it, it guards against accidents, and it is not a security boundary.</li>
+        <li><b>Terminal only by approval</b>An agent can start only the commands you list, with no shell prompt, and its keys go to that program alone.</li>
+        <li><b>Nothing leaves your Mac</b>No telemetry. Screen text goes only to the agent you connected.</li>
+      </ul>
+      <div class="reveal">
+        <div class="try dark">
+          <header><small>Choose an app. This replays the policy and a real snapshot; nothing here touches your Mac.</small><div class="apps" id="apps" role="group" aria-label="Choose an app"></div></header>
+          <pre id="try-out" aria-live="polite"></pre>
+        </div>
+        <div class="term dark" id="term">
+          <header><i></i><i></i><i></i></header>
+          <pre id="term-out" aria-label="Example receipts: every call is logged"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="install" aria-labelledby="inst-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <h2 id="inst-h">Running in a minute.</h2>
+      <p class="lead">Three steps, no account, no key. It is an ordinary MCP server that runs on your Mac.</p>
+    </div>
+    <div class="steps">
+      <div class="stepc reveal"><span class="n">step 1</span><h3>Install</h3><p>A short script that downloads the release, checks it and puts <code>youxpc</code> in <code>~/.local/bin</code>. <a href="https://github.com/Ar5en1c/youxpc/blob/main/install.sh">Read it first</a> if you like.</p>
+        <div class="copyline"><div><code>curl -fsSL https://raw.githubusercontent.com/Ar5en1c/youxpc/main/install.sh | bash</code><button type="button" data-copy aria-label="Copy this command">Copy</button></div></div></div>
+      <div class="stepc reveal"><span class="n">step 2</span><h3>Tell your agent</h3><p>It speaks plain MCP over stdio. For Claude Code:</p>
+        <div class="copyline"><div><code>claude mcp add youxpc -- ~/.local/bin/youxpc mcp</code><button type="button" data-copy aria-label="Copy this command">Copy</button></div></div></div>
+      <div class="stepc reveal"><span class="n">step 3</span><h3>Allow it once</h3><p>macOS asks for Accessibility permission for the app your agent runs in. That app is what you are trusting, so choose it deliberately.</p>
+        <div class="copyline"><div><code>~/.local/bin/youxpc doctor</code><button type="button" data-copy aria-label="Copy this command">Copy</button></div></div></div>
+    </div>
+    <p class="soft" style="margin-top:1.6rem;max-width:none">Prefer to build it? <code>git clone https://github.com/Ar5en1c/youxpc.git &amp;&amp; cd youxpc &amp;&amp; swift build -c release</code> (needs Xcode 26; this is also the way on an Intel Mac).</p>
+    <div class="limits">
+      <p><b style="color:var(--fg)">Where it stops.</b> macOS only, and terminal sessions use Apple's Terminal.</p>
+      <p>Canvas apps, games and custom-drawn interfaces have nothing to list, so they still need the real pointer for a moment.</p>
+      <p>Shortcuts with Command or Option bring the app to the front.</p>
+      <p>There is no confirmation step before sending, deleting or paying. The never-press list is the only guard, and you have to set it.</p>
+      <p>VS Code exposes almost nothing to accessibility, so it is close to unusable here.</p>
+      <p>Tested on Chrome, Brave, Calculator, TextEdit and Terminal. Other apps will have rough edges; please report them.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band flare close" aria-labelledby="close-h">
+  <div class="wrap">
+    <h2 id="close-h" class="reveal">Try it on one app. Star it if it earns its place.</h2>
+    <div class="hero-links">
+      <a class="pill solid" href="https://github.com/Ar5en1c/youxpc">Star on GitHub</a>
+      <a class="pill" href="https://github.com/Ar5en1c/youxpc/blob/main/bench/RESULTS.md">Read the benchmark write-up</a>
+      <a class="pill" href="https://github.com/Ar5en1c/youxpc/issues">Report a problem</a>
+    </div>
+  </div>
+  <div class="mark" aria-hidden="true">YouxPC</div>
+</section>
+</main>
+
+<footer class="band">
+  <div class="wrap">
+    <p>YouxPC is a fork of <a href="https://github.com/ghostwright/ghost-os">Ghost OS</a> by Ghostwright and keeps its MIT licence. The accessibility engine and the recipe system are theirs. This project is not affiliated with or endorsed by them.</p>
+    <p><a href="https://github.com/Ar5en1c/youxpc">Source</a>, <a href="https://github.com/Ar5en1c/youxpc/blob/main/bench/RESULTS.md">benchmark write-up</a>, <a href="https://github.com/Ar5en1c/youxpc/issues">report a problem</a>. This page has no trackers; its two typefaces load from fonts.bunny.net.</p>
+  </div>
+</footer>
+
+<button type="button" class="pill eye" id="eye"><span class="dot"></span>See this page as an agent does</button>
+<div id="agentview" role="dialog" aria-modal="true" aria-labelledby="av-h">
+  <button type="button" class="pill close-btn" id="av-close">Back to the page</button>
+  <div class="inner">
+    <h2 id="av-h">This page, the way an agent would read it.</h2>
+    <p class="lead">A browser imitation of what YouxPC does for Mac apps: one line per thing, an id on everything you can act on. Press an id to go there.</p>
+    <pre id="av-out"></pre>
+  </div>
+</div>
+
+<script>
+const DATA = {"repo": "Ar5en1c/youxpc", "model": "Claude Haiku 5.5", "replays": [{"id": "web-long-form", "label": "Fill in a form", "sentence": "Fill in the registration form: full name Rowan Tiller, email rt@example.test, role Editor, team Platform, weekly summary on, share usage data off, notes amber-5512. Then press Register.", "seconds": 18.88, "toolCalls": 3, "calls": [{"tool": "pc_snapshot", "args": {"app": "Brave Browser"}, "result": "Brave Browser — \"Workspace registration - Brave\"\ntoolbar\n  [e1] button \"Back\" (disabled)\n  [e2] button \"Forward\" (disabled)\n  [e3] button \"Reload\"\n  [e4] button \"Bookmark this tab\"\n  [e5] popupbutton \"View site information\"\n  [e6] textfield \"Address and search bar\" = \"127.0.0.1/web-long-form.html\"\n  [e7] popupbutton \"Brave Shields\"\n  [e8] popupbutton \"Brave Rewards\"\n  [e9] button \"Show Sidebar\"\n  [e10] popupbutton \"Brave Wallet\"\n  [e11] button \"Leo AI\"\n  [e12] popupbutton \"VPN\"\n  [e13] popupbutton \"Brave\"\nweb \"Workspace registration\"\n  # \"Workspace registration\"\n  \"Full name\"\n  [e14] textfield \"Full name\"\n  \"Email\"\n  [e15] textfield \"Email\"\n  \"Role\"\n  [e16] radiobutton \"Viewer\" (selected)\n  [e17] radiobutton \"Editor\"\n  [e18] radiobutton \"Admin\"\n  \"Team\"\n  [e19] popupbutton \"Team\" = \"Choose a team\"\n  [e20] checkbox \"Send weekly summary\" (unchecked)\n  [e21] checkbox \"Share usage data\" (checked)\n  \"Notes\"\n  [e22] textarea \"Notes\"\n  [e23] button \"Register\"\n\"Brave uses privacy-preserving product analytics to estimate the overall usage of certain features\"\n[e24] button \"Got it\"\n[e25] button \"Disable\"\n[e26] link \"Learn more\"\n[e27] button \"Close\"\n[e28] popupbutton \"Tab search\"\ntabs\n  [e29] radiobutton \"Workspace registration - Memory usage - 36.1 MB\" (selected)\n  [e30] button \"Close\"\n[e31] button \"New Tab\""}, {"tool": "pc_do", "args": {"app": "Brave Browser", "steps": [{"click": "e14"}, {"type": "Rowan Tiller", "into": "e14"}, {"click": "e15"}, {"type": "rt@example.test", "into": "e15"}, {"click": "e17"}, {"click": "e19"}, {"click": "Platform"}, {"click": "e20"}, {"click": "e21"}, {"click": "e22"}, {"type": "amber-5512", "into": "e22"}]}, "result": "1. click e14 \"Full name\": ok\n2. type into e14: ok\n3. click e15 \"Email\": ok\n4. type into e15: ok\n5. click e17 \"Editor\": ok\n6. click e19 \"Team\": ok\n7. click Platform: ok\n8. click e20 \"Send weekly summary\": ok\n9. click e21 \"Share usage data\": ok\n10. click e22 \"Notes\": ok\n11. type into e22: ok\nChanges:\n~ [e14] textfield \"Full name\" = \"Rowan Tiller\"\n~ [e15] textfield \"Email\" = \"rt@example.test\"\n~ [e16] radiobutton \"Viewer\"\n~ [e17] radiobutton \"Editor\" (selected)\n~ [e19] popupbutton \"Team\" = \"Platform\"\n~ [e20] checkbox \"Send weekly summary\" (checked)\n~ [e21] checkbox \"Share usage data\" (unchecked)\n~ [e22] textarea \"Notes\" = \"amber-5512\" (focused)"}, {"tool": "pc_click", "args": {"app": "Brave Browser", "index": "e23"}, "result": "{\"data\":{\"changes\":\"~ [e22] textarea \\\"Notes\\\" = \\\"amber-5512\\\"\\n~ [e23] button \\\"Register\\\" (focused)\\n+ \\\"Registered.\\\"\",\"element\":\"Register\",\"method\":\"ax-native\",\"pointer\":\"virtual\"},\"success\":true}"}], "listing": "Brave Browser — \"Workspace registration - Brave\"\nweb \"Workspace registration\"\n  # \"Workspace registration\"\n  \"Full name\"\n  [e14] textfield \"Full name\"\n  \"Email\"\n  [e15] textfield \"Email\"\n  \"Role\"\n  [e16] radiobutton \"Viewer\" (selected)\n  [e17] radiobutton \"Editor\"\n  [e18] radiobutton \"Admin\"\n  \"Team\"\n  [e19] popupbutton \"Team\" = \"Choose a team\"\n  [e20] checkbox \"Send weekly summary\" (unchecked)\n  [e21] checkbox \"Share usage data\" (checked)\n  \"Notes\"\n  [e22] textarea \"Notes\"\n  [e23] button \"Register\"", "hidden": 24, "said": "The registration form is filled in and submitted. The page now shows \"Registered.\"\n\nEntered: Rowan Tiller, rt@example.test, Editor, team Platform, weekly summary on, share usage data off, notes amber-5512.", "drawn": false, "page": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Workspace registration<\/title>\n<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:46rem}label{display:block;margin:.75rem 0 .25rem}input,select,button,textarea{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}table{border-collapse:collapse}td,th{padding:.35rem .8rem;border-bottom:1px solid #ddd;text-align:left}.inline{display:inline}[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}.modal>div{background:#fff;padding:1.5rem;border-radius:8px;min-width:18rem}[role=tab][aria-selected=true]{font-weight:700;border-bottom:3px solid #333}<\/style>\n<\/head>\n<body data-page=\"web-long-form\">\n<main>\n<h1>Workspace registration<\/h1>\n<form id=\"f\">\n<label for=\"name\">Full name<\/label><input id=\"name\" name=\"name\" type=\"text\" autocomplete=\"off\">\n<label for=\"email\">Email<\/label><input id=\"email\" name=\"email\" type=\"email\" autocomplete=\"off\">\n<fieldset class=\"row\"><legend>Role<\/legend>\n<input id=\"r1\" type=\"radio\" name=\"role\" value=\"Viewer\" checked><label class=\"inline\" for=\"r1\">Viewer<\/label>\n<input id=\"r2\" type=\"radio\" name=\"role\" value=\"Editor\"><label class=\"inline\" for=\"r2\">Editor<\/label>\n<input id=\"r3\" type=\"radio\" name=\"role\" value=\"Admin\"><label class=\"inline\" for=\"r3\">Admin<\/label>\n<\/fieldset>\n<label for=\"team\">Team<\/label>\n<select id=\"team\" name=\"team\"><option value=\"\">Choose a team<\/option><option>Billing<\/option><option>Design<\/option><option>Platform<\/option><option>Support<\/option><\/select>\n<div class=\"row\"><input id=\"summary\" type=\"checkbox\"><label class=\"inline\" for=\"summary\">Send weekly summary<\/label><\/div>\n<div class=\"row\"><input id=\"usage\" type=\"checkbox\" checked><label class=\"inline\" for=\"usage\">Share usage data<\/label><\/div>\n<label for=\"notes\">Notes<\/label><textarea id=\"notes\" name=\"notes\" rows=\"3\" cols=\"40\"><\/textarea>\n<div class=\"row\"><button type=\"submit\">Register<\/button><\/div>\n<\/form>\n<p id=\"status\" role=\"status\"><\/p>\n<\/main>\n<script>window.rec = function () {};<\/script>\n<script>\ndocument.getElementById('f').addEventListener('submit', function (e) {\n  e.preventDefault();\n  var role = document.querySelector('input[name=role]:checked');\n  rec({ event: 'register', name: document.getElementById('name').value, email: document.getElementById('email').value,\n        role: role ? role.value : '', team: document.getElementById('team').value,\n        summary: document.getElementById('summary').checked, usage: document.getElementById('usage').checked,\n        notes: document.getElementById('notes').value });\n  document.getElementById('status').textContent = 'Registered.';\n});\n<\/script>\n<\/body>\n<\/html>\n", "pointer": {"virtual": 9, "system-returned": 0, "system": 0}}, {"id": "web-rows", "label": "Pick the right row", "sentence": "On the open page, approve the request from Marlow Quist and reject the request from Tessa Bright. Leave the other requests alone.", "seconds": 8.16, "toolCalls": 3, "calls": [{"tool": "pc_snapshot", "args": {"app": "Brave Browser"}, "result": "Brave Browser — \"Access requests - Brave\"\ntoolbar\n  [e1] button \"Back\" (disabled)\n  [e2] button \"Forward\" (disabled)\n  [e3] button \"Reload\"\n  [e4] button \"Bookmark this tab\"\n  [e5] popupbutton \"View site information\"\n  [e6] textfield \"Address and search bar\" = \"127.0.0.1/web-rows.html\"\n  [e7] popupbutton \"Brave Shields\"\n  [e8] popupbutton \"Brave Rewards\"\n  [e9] button \"Show Sidebar\"\n  [e10] popupbutton \"Brave Wallet\"\n  [e11] button \"Leo AI\"\n  [e12] popupbutton \"VPN\"\n  [e13] popupbutton \"Brave\"\nweb \"Access requests\"\n  # \"Access requests\"\n  \"Six people have asked for access.\"\n  table\n    row \"Name\"\n      \"Team\"\n      \"Decision\"\n    row \"Ines Varga\"\n      \"Billing\"\n      [e14] button \"Approve\"\n      [e15] button \"Reject\"\n    row \"Marlow Quist\"\n      \"Platform\"\n      [e16] button \"Approve\"\n      [e17] button \"Reject\"\n    row \"Dara Okafor\"\n      \"Design\"\n      [e18] button \"Approve\"\n      [e19] button \"Reject\"\n    row \"Tessa Bright\"\n      \"Support\"\n      [e20] button \"Approve\"\n      [e21] button \"Reject\"\n    row \"Jonas Feld\"\n      \"Platform\"\n      [e22] button \"Approve\"\n      [e23] button \"Reject\"\n    row \"Priya Raman\"\n      \"Billing\"\n      [e24] button \"Approve\"\n      [e25] button \"Reject\"\n\"Brave uses privacy-preserving product analytics to estimate the overall usage of certain features\"\n[e26] button \"Got it\"\n[e27] button \"Disable\"\n[e28] link \"Learn more\"\n[e29] button \"Close\"\n[e30] popupbutton \"Tab search\"\ntabs\n  [e31] radiobutton \"Access requests - Memory usage - 36.1 MB\" (selected)\n  [e32] button \"Close\"\n[e33] button \"New Tab\""}, {"tool": "pc_click", "args": {"index": "e16"}, "result": "{\"data\":{\"changes\":\"+ \\\"Approved\\\"\\n+ \\\"Marlow Quist: approved.\\\"\\n- [e16] button \\\"Approve\\\"\\n- [e17] button \\\"Reject\\\"\",\"element\":\"Approve\",\"method\":\"ax-focus-space\",\"pointer\":\"virtual\"},\"success\":true}"}, {"tool": "pc_click", "args": {"index": "e21"}, "result": "{\"data\":{\"changes\":\"+ \\\"Rejected\\\"\\n+ \\\"Tessa Bright: rejected.\\\"\\n- [e20] button \\\"Approve\\\"\\n- [e21] button \\\"Reject\\\"\\n- \\\"Marlow Quist: approved.\\\"\",\"element\":\"Reject\",\"method\":\"ax-native\",\"pointer\":\"virtual\"},\"success\":true}"}], "listing": "Brave Browser — \"Access requests - Brave\"\nweb \"Access requests\"\n  # \"Access requests\"\n  \"Six people have asked for access.\"\n  table\n    row \"Name\"\n      \"Team\"\n      \"Decision\"\n    row \"Ines Varga\"\n      \"Billing\"\n      [e14] button \"Approve\"\n      [e15] button \"Reject\"\n    row \"Marlow Quist\"\n      \"Platform\"\n      [e16] button \"Approve\"\n      [e17] button \"Reject\"\n    row \"Dara Okafor\"\n      \"Design\"\n      [e18] button \"Approve\"\n      [e19] button \"Reject\"\n    row \"Tessa Bright\"\n      \"Support\"\n      [e20] button \"Approve\"\n      [e21] button \"Reject\"\n    row \"Jonas Feld\"\n      \"Platform\"\n      [e22] button \"Approve\"\n      [e23] button \"Reject\"\n    row \"Priya Raman\"\n      \"Billing\"\n      [e24] button \"Approve\"\n      [e25] button \"Reject\"", "hidden": 24, "said": "Approved Marlow Quist and rejected Tessa Bright on the Access requests page. The other four requests (Ines Varga, Dara Okafor, Jonas Feld, Priya Raman) are untouched.", "drawn": false, "page": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Access requests<\/title>\n<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:46rem}label{display:block;margin:.75rem 0 .25rem}input,select,button,textarea{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}table{border-collapse:collapse}td,th{padding:.35rem .8rem;border-bottom:1px solid #ddd;text-align:left}.inline{display:inline}[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}.modal>div{background:#fff;padding:1.5rem;border-radius:8px;min-width:18rem}[role=tab][aria-selected=true]{font-weight:700;border-bottom:3px solid #333}<\/style>\n<\/head>\n<body data-page=\"web-rows\">\n<main>\n<h1>Access requests<\/h1>\n<p>Six people have asked for access.<\/p>\n<table>\n<thead><tr><th>Name<\/th><th>Team<\/th><th>Decision<\/th><\/tr><\/thead>\n<tbody id=\"rows\"><\/tbody>\n<\/table>\n<p id=\"status\" role=\"status\"><\/p>\n<\/main>\n<script>window.rec = function () {};<\/script>\n<script>\nvar people = [[\"Ines Varga\",\"Billing\"],[\"Marlow Quist\",\"Platform\"],[\"Dara Okafor\",\"Design\"],\n              [\"Tessa Bright\",\"Support\"],[\"Jonas Feld\",\"Platform\"],[\"Priya Raman\",\"Billing\"]];\nvar body = document.getElementById('rows');\npeople.forEach(function (p) {\n  var tr = document.createElement('tr');\n  tr.innerHTML = '<td>' + p[0] + '<\/td><td>' + p[1] + '<\/td><td><\/td>';\n  ['Approve', 'Reject'].forEach(function (label) {\n    var b = document.createElement('button');\n    b.type = 'button'; b.textContent = label;\n    b.addEventListener('click', function () {\n      rec({ event: 'decide', who: p[0], decision: label });\n      tr.lastChild.textContent = label === 'Approve' ? 'Approved' : 'Rejected';\n      document.getElementById('status').textContent = p[0] + ': ' + tr.lastChild.textContent.toLowerCase() + '.';\n    });\n    tr.lastChild.appendChild(b);\n  });\n  body.appendChild(tr);\n});\n<\/script>\n<\/body>\n<\/html>\n", "pointer": {"virtual": 2, "system-returned": 0, "system": 0}}, {"id": "calc-multiply", "label": "Use Calculator", "sentence": "Calculate 47 × 19 in Calculator and tell me the result.", "seconds": 8.8, "toolCalls": 2, "calls": [{"tool": "pc_snapshot", "args": {"app": "Calculator"}, "result": "Calculator — \"Calculator\"\n\"0\"\n[e10] button \"Delete\"\n[e11] button \"All Clear\"\n[e12] button \"Percent\"\n[e13] button \"Divide\"\n[e14] button \"7\"\n[e15] button \"8\"\n[e16] button \"9\"\n[e17] button \"Multiply\"\n[e18] button \"4\"\n[e19] button \"5\"\n[e20] button \"6\"\n[e21] button \"Subtract\"\n[e22] button \"1\"\n[e23] button \"2\"\n[e24] button \"3\"\n[e25] button \"Add\"\n[e26] button \"Change Sign\"\n[e27] button \"0\"\n[e28] button \"Point\"\n[e29] button \"Equals\"\ntoolbar\n  [e30] button \"Show Sidebar\"\n  [e31] button \"Mode\""}, {"tool": "pc_do", "args": {"app": "Calculator", "steps": [{"click": "e11"}, {"click": "4"}, {"click": "7"}, {"click": "Multiply"}, {"click": "1"}, {"click": "9"}, {"click": "Equals"}]}, "result": "1. click e11 \"All Clear\": ok\n2. click 4: ok\n3. click 7: ok\n4. click Multiply: ok\n5. click 1: ok\n6. click 9: ok\n7. click Equals: ok\nChanges:\n+ \"47 × 19\"\n+ \"893\"\n- \"0\""}], "listing": "Calculator — \"Calculator\"\n\"0\"\n[e10] button \"Delete\"\n[e11] button \"All Clear\"\n[e12] button \"Percent\"\n[e13] button \"Divide\"\n[e14] button \"7\"\n[e15] button \"8\"\n[e16] button \"9\"\n[e17] button \"Multiply\"\n[e18] button \"4\"\n[e19] button \"5\"\n[e20] button \"6\"\n[e21] button \"Subtract\"\n[e22] button \"1\"\n[e23] button \"2\"\n[e24] button \"3\"\n[e25] button \"Add\"\n[e26] button \"Change Sign\"\n[e27] button \"0\"\n[e28] button \"Point\"\n[e29] button \"Equals\"", "hidden": 3, "said": "47 × 19 = **893**. I entered it in the open Calculator app, and it shows \"47 × 19\" with the result 893.", "drawn": true, "page": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Calculator<\/title>\n<style>\nbody{margin:0;font:16px/1.3 -apple-system,\"Avenir Next\",system-ui,sans-serif;background:#2b2b2e;color:#fff;display:flex;justify-content:center;padding:1.2rem 0}\n.calc{width:232px}\n.screen{height:86px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;padding:0 .5rem .4rem}\n#expr{font-size:.9rem;color:#a9a9ae;min-height:1.2em}\n#out{font-size:2.5rem;font-weight:300;letter-spacing:-.01em}\n.keys{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}\nbutton{font:inherit;font-size:1.25rem;border:0;border-radius:50%;aspect-ratio:1;color:#fff;background:#59595d;cursor:default}\nbutton.fn{background:#7a7a7f}\nbutton.op{background:#f09a37}\nbutton.pressed{filter:brightness(1.45)}\n<\/style>\n<\/head>\n<body>\n<div class=\"calc\">\n<div class=\"screen\"><div id=\"expr\"><\/div><div id=\"out\">0<\/div><\/div>\n<div class=\"keys\" id=\"keys\"><\/div>\n<\/div>\n<script>\n// A drawing of Calculator, laid out like the app, with the names the accessibility tree gives its keys.\nvar KEYS = [[\"⌫\",\"Delete\",\"fn\"],[\"AC\",\"All Clear\",\"fn\"],[\"%\",\"Percent\",\"fn\"],[\"÷\",\"Divide\",\"op\"],\n            [\"7\",\"7\"],[\"8\",\"8\"],[\"9\",\"9\"],[\"×\",\"Multiply\",\"op\"],\n            [\"4\",\"4\"],[\"5\",\"5\"],[\"6\",\"6\"],[\"−\",\"Subtract\",\"op\"],\n            [\"1\",\"1\"],[\"2\",\"2\"],[\"3\",\"3\"],[\"+\",\"Add\",\"op\"],\n            [\"±\",\"Change Sign\"],[\"0\",\"0\"],[\".\",\"Point\"],[\"=\",\"Equals\",\"op\"]];\nvar SIGN = {Divide:\"÷\",Multiply:\"×\",Subtract:\"−\",Add:\"+\"};\nvar cur = \"0\", prev = null, op = null, fresh = true;\nfunction show(){ document.getElementById(\"out\").textContent = cur; }\nfunction calc(a, o, b){ a = parseFloat(a); b = parseFloat(b); return String(o === \"Add\" ? a + b : o === \"Subtract\" ? a - b : o === \"Multiply\" ? a * b : a / b); }\nfunction press(name){\n  if (/^[0-9]$/.test(name)) { cur = fresh || cur === \"0\" ? name : cur + name; fresh = false; }\n  else if (name === \"Point\") { if (cur.indexOf(\".\") < 0) cur += \".\"; fresh = false; }\n  else if (name === \"All Clear\") { cur = \"0\"; prev = null; op = null; fresh = true; document.getElementById(\"expr\").textContent = \"\"; }\n  else if (name === \"Delete\") { cur = cur.length > 1 ? cur.slice(0, -1) : \"0\"; }\n  else if (name === \"Change Sign\") { cur = cur.charAt(0) === \"-\" ? cur.slice(1) : \"-\" + cur; }\n  else if (name === \"Percent\") { cur = String(parseFloat(cur) / 100); }\n  else if (SIGN[name]) { if (op && !fresh) cur = calc(prev, op, cur); prev = cur; op = name; fresh = true; document.getElementById(\"expr\").textContent = prev + \" \" + SIGN[name]; }\n  else if (name === \"Equals\" && op) { document.getElementById(\"expr\").textContent = prev + \" \" + SIGN[op] + \" \" + cur; cur = calc(prev, op, cur); op = null; fresh = true; }\n  show();\n}\nKEYS.forEach(function (k) {\n  var b = document.createElement(\"button\");\n  b.type = \"button\"; b.textContent = k[0]; b.setAttribute(\"aria-label\", k[1]); if (k[2]) b.className = k[2];\n  b.addEventListener(\"click\", function () { press(k[1]); b.classList.add(\"pressed\"); setTimeout(function () { b.classList.remove(\"pressed\"); }, 160); });\n  document.getElementById(\"keys\").appendChild(b);\n});\n<\/script>\n<\/body>\n<\/html>\n", "pointer": {"virtual": 7, "system-returned": 0, "system": 0}}], "race": [{"id": "calc-multiply", "sentence": "Calculate 47 × 19 in Calculator and tell me the result.", "label": "47 × 19 in Calculator", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 9.7, "calls": 2.0, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "none": true}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 23.1, "calls": 4.0, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 17.2, "calls": 9.3, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 22.7, "calls": 14.0, "passed": 3, "runs": 3}]}, {"id": "calc-chain", "sentence": "Calculate (128 + 256) ÷ 4 in Calculator and tell me the result.", "label": "(128 + 256) ÷ 4 in Calculator", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 19.1, "calls": 2.7, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "none": true}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 45.4, "calls": 7.0, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 23.1, "calls": 14.3, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 44.1, "calls": 24.0, "passed": 3, "runs": 3}]}, {"id": "textedit-type", "sentence": "Type the text quartz-4821 into the open TextEdit document.", "label": "Type a code into TextEdit", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 6.7, "calls": 2.0, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "none": true}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 10.6, "calls": 3.3, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 10.8, "calls": 2.3, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 10.7, "calls": 3.3, "passed": 3, "runs": 3}]}, {"id": "web-click", "sentence": "On the open web page, click the button labelled Delta.", "label": "Click one button", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 10.2, "calls": 2.0, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 8.9, "calls": 4.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 12.6, "calls": 5.7, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 9.1, "calls": 3.7, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 22.6, "calls": 9.3, "passed": 0, "runs": 3}]}, {"id": "web-form", "sentence": "Fill in the Name field with quartz-4821 and the Email field with zx@example.test, then press Submit.", "label": "Fill two fields and submit", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 12.1, "calls": 2.0, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 7.4, "calls": 5.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 21.1, "calls": 8.3, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 12.3, "calls": 5.3, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 21.9, "calls": 11.7, "passed": 3, "runs": 3}]}, {"id": "web-checkbox-select", "sentence": "Tick the 'Express shipping' checkbox, choose 'Blue' in the colour dropdown, then press Save.", "label": "Checkbox, dropdown, save", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 14.2, "calls": 5.7, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 11.2, "calls": 7.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 24.4, "calls": 13.0, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 41.4, "calls": 28.3, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 36.3, "calls": 17.3, "passed": 2, "runs": 3}]}, {"id": "web-read", "sentence": "Find the access code shown on the open page and tell me what it is.", "label": "Read a code off the page", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 4.9, "calls": 1.0, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 7.2, "calls": 2.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 11.1, "calls": 2.3, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 7.0, "calls": 2.0, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 6.7, "calls": 1.0, "passed": 3, "runs": 3}]}, {"id": "web-scroll", "sentence": "Scroll down the open page and click the 'Confirm order' button.", "label": "Scroll, then confirm an order", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 9.8, "calls": 3.7, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 14.1, "calls": 4.7, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 24.5, "calls": 9.0, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 19.7, "calls": 14.0, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 24.4, "calls": 10.7, "passed": 3, "runs": 3}]}, {"id": "web-dialog", "sentence": "Click 'Rename', enter basalt-77 in the dialog's text field, and confirm with OK.", "label": "Rename through a dialog", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 10.8, "calls": 6.0, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 13.1, "calls": 7.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 21.5, "calls": 9.7, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 10.2, "calls": 7.0, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 35.2, "calls": 14.3, "passed": 3, "runs": 3}]}, {"id": "web-wizard", "sentence": "Complete the three-step form: enter cedar-305 in step 1, harbor-218 in step 2 and ember-946 in step 3, pressing Next after steps 1 and 2 and Finish at the end.", "label": "Three-step form", "hard": false, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 17.9, "calls": 6.3, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 15.1, "calls": 11.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 26.9, "calls": 10.0, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 21.0, "calls": 12.3, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 48.9, "calls": 17.3, "passed": 2, "runs": 3}]}, {"id": "web-rows", "sentence": "On the open page, approve the request from Marlow Quist and reject the request from Tessa Bright. Leave the other requests alone.", "label": "Approve one row, reject another", "hard": true, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 10.2, "calls": 3.3, "passed": 2, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 8.5, "calls": 5.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 14.7, "calls": 6.3, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 24.3, "calls": 12.0, "passed": 1, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 16.5, "calls": 5.7, "passed": 2, "runs": 3}]}, {"id": "web-long-form", "sentence": "Fill in the registration form: full name Rowan Tiller, email rt@example.test, role Editor, team Platform, weekly summary on, share usage data off, notes amber-5512. Then press Register.", "label": "Seven-field registration form", "hard": true, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 19.0, "calls": 4.0, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 10.8, "calls": 6.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 49.5, "calls": 22.0, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 55.3, "calls": 36.0, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 77.1, "calls": 37.7, "passed": 2, "runs": 3}]}, {"id": "web-confirm-delete", "sentence": "Delete the draft named draft-b7 and confirm the deletion. Do not delete anything else.", "label": "Delete one draft, confirm", "hard": true, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 9.1, "calls": 4.3, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 11.6, "calls": 6.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 17.3, "calls": 7.0, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 24.3, "calls": 16.0, "passed": 2, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 25.0, "calls": 8.3, "passed": 3, "runs": 3}]}, {"id": "web-tabs", "sentence": "Open the Billing section, set the plan to Team and the seats to 12, then press Save in that section.", "label": "Tabs, a dropdown and a number", "hard": true, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 14.9, "calls": 10.7, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 11.9, "calls": 8.3, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 35.3, "calls": 14.3, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 43.1, "calls": 27.0, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 98.4, "calls": 23.0, "passed": 1, "runs": 3}]}, {"id": "web-async-search", "sentence": "Search the trail finder for osprey and open the result named exactly 'Osprey ridge trail'.", "label": "Search results that arrive late", "hard": true, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 10.4, "calls": 5.0, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 16.5, "calls": 8.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 19.4, "calls": 8.3, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 23.5, "calls": 12.0, "passed": 1, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 35.1, "calls": 15.3, "passed": 2, "runs": 3}]}, {"id": "web-reveal-enter", "sentence": "Get the pairing code from the page, enter it in the Pairing code field and press Pair device.", "label": "Copy a code that appears on click", "hard": true, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 11.5, "calls": 7.3, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "seconds": 13.1, "calls": 7.0, "passed": 3, "runs": 3}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 26.3, "calls": 11.3, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 18.3, "calls": 9.3, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 30.7, "calls": 8.3, "passed": 3, "runs": 3}]}, {"id": "calc-long", "sentence": "Calculate (37 × 12 + 159) ÷ 9 in Calculator and tell me the result.", "label": "(37 × 12 + 159) ÷ 9 in Calculator", "hard": true, "tools": [{"key": "youxpc", "label": "YouxPC", "seconds": 19.6, "calls": 4.0, "passed": 3, "runs": 3}, {"key": "playwright", "label": "Playwright MCP 0.0.83", "none": true}, {"key": "cua", "label": "Cua Driver 0.35.2", "seconds": 45.5, "calls": 5.3, "passed": 3, "runs": 3}, {"key": "ghost", "label": "Ghost OS 2.2.1", "seconds": 31.3, "calls": 22.0, "passed": 3, "runs": 3}, {"key": "peekaboo", "label": "Peekaboo 4.9.2", "seconds": 76.1, "calls": 51.7, "passed": 3, "runs": 3}]}], "table": {"all": [{"passed": 50, "runs": 51, "seconds": 630, "calls": 216, "tokens": 2050398, "key": "youxpc", "label": "YouxPC", "note": ""}, {"passed": 51, "runs": 51, "seconds": 1287, "calls": 441, "tokens": 23902869, "key": "cua", "label": "Cua Driver 0.35.2", "note": ""}, {"passed": 46, "runs": 51, "seconds": 1176, "calls": 699, "tokens": 9007227, "key": "ghost", "label": "Ghost OS 2.2.1", "note": "the project YouxPC was forked from"}, {"passed": 41, "runs": 51, "seconds": 1897, "calls": 819, "tokens": 43644540, "key": "peekaboo", "label": "Peekaboo 4.9.2", "note": "started with --allow-foreground"}], "web": [{"passed": 38, "runs": 39, "seconds": 465, "calls": 184, "tokens": 1674039, "key": "youxpc", "label": "YouxPC", "note": ""}, {"passed": 39, "runs": 39, "seconds": 448, "calls": 243, "tokens": 2309907, "key": "playwright", "label": "Playwright MCP 0.0.83", "note": "web pages only; its own headless browser"}, {"passed": 39, "runs": 39, "seconds": 913, "calls": 382, "tokens": 19909307, "key": "cua", "label": "Cua Driver 0.35.2", "note": ""}, {"passed": 34, "runs": 39, "seconds": 929, "calls": 555, "tokens": 8028616, "key": "ghost", "label": "Ghost OS 2.2.1", "note": "the project YouxPC was forked from"}, {"passed": 29, "runs": 39, "seconds": 1436, "calls": 540, "tokens": 28506759, "key": "peekaboo", "label": "Peekaboo 4.9.2", "note": "started with --allow-foreground"}]}, "pointer": {"virtual": 259, "real": 0}, "taskCount": 17, "trials": 3, "failure": {"sentence": "On the open page, approve the request from Marlow Quist and reject the request from Tessa Bright. Leave the other requests alone.", "listing": "    row \"Marlow Quist\"\n      \"Platform\"\n      [e16] button \"Approve\"\n      [e17] button \"Reject\"\n    row \"Dara Okafor\"\n      \"Design\"\n      [e18] button \"Approve\"\n      [e19] button \"Reject\"\n    row \"Tessa Bright\"\n      \"Support\"\n      [e20] button \"Approve\"\n      [e21] button \"Reject\"", "call": {"app": "Brave Browser", "steps": [{"click": "e16"}, {"wait": 1}, {"click": "e20"}]}, "answer": "1. click e16 \"Approve\": ok\n2. wait 1.0s: ok\n3. click e20 \"Approve\": ok\nChanges:\n+ \"Approved\"\n+ \"Approved\"\n+ \"Tessa Bright: approved.\"\n- [e16] button \"Approve\"\n- [e17] button \"Reject\"\n- [e20] button \"Approve\"\n- [e21] button \"Reject\"", "said": "I made a mistake: I clicked Approve for Tessa Bright (e20) when you asked me to reject her. I'll check the page state before doing anything else.", "passed": 8, "runs": 9}};
+if (!DATA) {
+  document.body.innerHTML = '<pre style="margin:0;padding:2rem;min-height:100vh;font:15px/1.6 monospace;color:#f5efe4;background:#100e0c;white-space:pre-wrap">This file is the unbuilt page template: it has no data in it, so nothing on it can work.\n\nOpen docs/index.html instead, or build it with:\n\n  python3 scripts/build_site.py</pre>';
+  throw new Error("unbuilt page template");
+}
+const $ = (id) => document.getElementById(id);
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const small = () => innerWidth <= 900;
+const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const fmt = (n) => n.toLocaleString("en-US");
+const later = (fn) => setTimeout(() => fn(performance.now()), 16);
+
+/* ---------- shared state for the two cursors: yours (white) and the agent's (flare) ---------- */
+const stage = { press: 0, mx: innerWidth * .7, my: innerHeight * .4, ax: innerWidth * .8, ay: innerHeight * .4, ripples: [] };
+function ripple(x, y, who) { stage.ripples.push({ x, y, who, t0: performance.now() }); if (stage.ripples.length > 6) stage.ripples.shift(); }
+
+/* ---------- the agent's cursor, in 3D ---------- */
+(function cursor3d() {
+  const canvas = $("gl"), gl = canvas.getContext("webgl", { antialias: true, alpha: true, premultipliedAlpha: true });
+  if (!gl) return;
+  // outline of an arrow cursor, tip at the top left
+  let outline = [[0, 0], [0, 17], [4.1, 13.2], [7.1, 20], [10, 18.7], [7.1, 12], [12.6, 12]].map(([x, y]) => [(x - 5.4) / 10, -(y - 9.6) / 10]);
+  const area = outline.reduce((s, p, i) => { const q = outline[(i + 1) % outline.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0);
+  if (area < 0) outline.reverse();
+  const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  function triangulate(poly) {
+    const idx = poly.map((_, i) => i), out = []; let guard = 0;
+    const inside = (p, a, b, c) => cross(a, b, p) >= 0 && cross(b, c, p) >= 0 && cross(c, a, p) >= 0;
+    while (idx.length > 3 && guard++ < 300) {
+      for (let i = 0; i < idx.length; i++) {
+        const a = idx[(i + idx.length - 1) % idx.length], b = idx[i], c = idx[(i + 1) % idx.length];
+        if (cross(poly[a], poly[b], poly[c]) <= 0) continue;
+        if (idx.some((j) => j !== a && j !== b && j !== c && inside(poly[j], poly[a], poly[b], poly[c]))) continue;
+        out.push(a, b, c); idx.splice(i, 1); break;
+      }
+    }
+    out.push(idx[0], idx[1], idx[2]); return out;
+  }
+  function inset(poly, by) {
+    return poly.map((p, i) => {
+      const a = poly[(i + poly.length - 1) % poly.length], c = poly[(i + 1) % poly.length];
+      const n = (u, v) => { const dx = v[0] - u[0], dy = v[1] - u[1], l = Math.hypot(dx, dy); return [-dy / l, dx / l]; };
+      const n1 = n(a, p), n2 = n(p, c); let mx = n1[0] + n2[0], my = n1[1] + n2[1]; const l = Math.hypot(mx, my) || 1; mx /= l; my /= l;
+      const k = by / Math.max(.35, mx * n1[0] + my * n1[1]);
+      return [p[0] + mx * k, p[1] + my * k];
+    });
+  }
+  const depth = .2, bevel = .075, verts = [];
+  const face = (a, b, c, hint) => {
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]; const l = Math.hypot(...n) || 1; n = n.map((x) => x / l);
+    if (hint && n[0] * hint[0] + n[1] * hint[1] + n[2] * hint[2] < 0) n = n.map((x) => -x);
+    [a, b, c].forEach((p) => verts.push(p[0], p[1], p[2], n[0], n[1], n[2]));
+  };
+  const inner = inset(outline, bevel), tris = triangulate(inner), z1 = depth, z0 = depth - bevel;
+  for (let i = 0; i < tris.length; i += 3) {
+    const [a, b, c] = [tris[i], tris[i + 1], tris[i + 2]].map((k) => inner[k]);
+    face([a[0], a[1], z1], [b[0], b[1], z1], [c[0], c[1], z1], [0, 0, 1]);
+    face([a[0], a[1], -z1], [c[0], c[1], -z1], [b[0], b[1], -z1], [0, 0, -1]);
+  }
+  outline.forEach((p, i) => {
+    const j = (i + 1) % outline.length, q = outline[j], pi = inner[i], qi = inner[j];
+    const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy), out = [dy / l, -dx / l, 0];
+    const quad = (a, b, c, d, hint) => { face(a, b, c, hint); face(a, c, d, hint); };
+    quad([p[0], p[1], z0], [q[0], q[1], z0], [q[0], q[1], -z0], [p[0], p[1], -z0], out);
+    quad([pi[0], pi[1], z1], [qi[0], qi[1], z1], [q[0], q[1], z0], [p[0], p[1], z0], [out[0], out[1], 1]);
+    quad([pi[0], pi[1], -z1], [qi[0], qi[1], -z1], [q[0], q[1], -z0], [p[0], p[1], -z0], [out[0], out[1], -1]);
+  });
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, `attribute vec3 p;attribute vec3 n;uniform mat4 mvp;uniform mat4 rot;varying vec3 vn;varying vec3 vo;void main(){vn=(rot*vec4(n,0.)).xyz;vo=p;gl_Position=mvp*vec4(p,1.);}`));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, `precision mediump float;varying vec3 vn;varying vec3 vo;uniform float press;
+    void main(){vec3 n=normalize(vn);vec3 v=vec3(0.,0.,1.);
+      vec3 base=mix(vec3(.78,.19,.02),vec3(1.,.69,.2),clamp(vo.y*.55+.55,0.,1.));
+      vec3 l1=normalize(vec3(-.45,.75,.6));vec3 l2=normalize(vec3(.8,-.25,.35));
+      float d1=max(dot(n,l1),0.);float d2=max(dot(n,l2),0.);
+      float s=pow(max(dot(n,normalize(l1+v)),0.),48.);float fr=pow(1.-max(dot(n,v),0.),2.6);
+      vec3 col=base*(.3+.98*d1)+vec3(.8,.86,1.)*d2*.22+vec3(1.)*s*.9+vec3(1.,.82,.55)*fr*.6;
+      col=mix(col,vec3(1.),press*.25);
+      gl_FragColor=vec4(col,1.);}`));
+  gl.linkProgram(prog); gl.useProgram(prog);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+  const ap = gl.getAttribLocation(prog, "p"), an = gl.getAttribLocation(prog, "n");
+  gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap, 3, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(an); gl.vertexAttribPointer(an, 3, gl.FLOAT, false, 24, 12);
+  gl.enable(gl.DEPTH_TEST);
+  const uMvp = gl.getUniformLocation(prog, "mvp"), uRot = gl.getUniformLocation(prog, "rot"), uPress = gl.getUniformLocation(prog, "press");
+  const mul = (a, b) => { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; };
+  const rx = (a) => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1]; };
+  const ry = (a) => { const c = Math.cos(a), s = Math.sin(a); return [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1]; };
+  const rz = (a) => { const c = Math.cos(a), s = Math.sin(a); return [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; };
+  const cam = 6, fov = .6, cur = { x: 0, y: 0, s: 0, rx: 0, ry: 0 };
+  let W = 0, H = 0, first = true, lastAct = 0;
+  function size() { const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; canvas.width = W * d; canvas.height = H * d; gl.viewport(0, 0, canvas.width, canvas.height); }
+  size(); addEventListener("resize", size);
+  function frame(now) {
+    const home = $("home").getBoundingClientRect(), inHero = home.bottom > H * .28;
+    // in the opening it is large and central to its stage; afterwards it waits in the corner
+    const tx = inHero ? home.left + home.width * .5 : W - (small() ? 40 : 62);
+    const ty = inHero ? home.top + home.height * .44 : H - (small() ? 46 : 64);
+    const ts = inHero ? Math.min(home.height, home.width) / 470 : (small() ? .15 : .19);
+    const k = first ? 1 : .09; first = false;
+    cur.x += (tx - cur.x) * k; cur.y += (ty - cur.y) * k; cur.s += (ts - cur.s) * k;
+    stage.ax = cur.x; stage.ay = cur.y;
+    // in the opening the agent presses something every few seconds without any help from you
+    if (inHero && !calm && now - lastAct > 4200) { lastAct = now; stage.press = .7; ripple(cur.x, cur.y, "agent"); }
+    const t = now / 1000, aimY = clamp((stage.mx - cur.x) / W, -1, 1) * .75, aimX = clamp((stage.my - cur.y) / H, -1, 1) * .55;
+    cur.ry += (aimY + Math.sin(t * .7) * .12 - cur.ry) * .08; cur.rx += (aimX + Math.cos(t * .55) * .08 - cur.rx) * .08;
+    stage.press *= .9;
+    const half = Math.tan(fov / 2) * cam, asp = W / H;
+    const wx = (cur.x / W * 2 - 1) * half * asp, wy = (1 - cur.y / H * 2) * half + Math.sin(t * 1.1) * .04 * cur.s;
+    const f = 1 / Math.tan(fov / 2), proj = [f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, -1.02, -1, 0, 0, -.202, 0];
+    const rot = mul(ry(cur.ry), mul(rx(cur.rx), rz(.12)));
+    const sc = cur.s * (1 - stage.press * .12), model = mul([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, wx, wy, -cam - stage.press * .5, 1], mul(rot, [sc, 0, 0, 0, 0, sc, 0, 0, 0, 0, sc, 0, 0, 0, 0, 1]));
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.uniformMatrix4fv(uMvp, false, mul(proj, model)); gl.uniformMatrix4fv(uRot, false, rot); gl.uniform1f(uPress, stage.press);
+    gl.drawArrays(gl.TRIANGLES, 0, verts.length / 6);
+    if (!calm) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  if (calm) addEventListener("scroll", () => requestAnimationFrame(frame), { passive: true });
+})();
+addEventListener("pointermove", (e) => { stage.mx = e.clientX; stage.my = e.clientY; }, { passive: true });
+addEventListener("pointerdown", (e) => { stage.press = 1; ripple(e.clientX, e.clientY, "you"); });
+
+/* ---------- the dot field behind the opening: white where you are, flare where the agent is ---------- */
+(function dots() {
+  const cv = $("dots"), ctx = cv.getContext("2d"), hero = cv.parentElement, GAP = 24;
+  let W = 0, H = 0, cols = 0, rows = 0, on = true;
+  function size() {
+    const d = Math.min(2, devicePixelRatio || 1), r = hero.getBoundingClientRect();
+    W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+    cols = Math.ceil(W / GAP) + 1; rows = Math.ceil(H / GAP) + 1;
+  }
+  function draw(now) {
+    const r = hero.getBoundingClientRect(), t = now / 1000;
+    const px = stage.mx - r.left, py = stage.my - r.top, ax = stage.ax - r.left, ay = stage.ay - r.top;
+    const live = stage.ripples.filter((p) => now - p.t0 < 1700);
+    ctx.clearRect(0, 0, W, H);
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        const x = i * GAP, y = j * GAP;
+        let a = .1 + .05 * Math.sin(t * .7 + i * .33 + j * .21), s = 1.4, flare = 0, white = 0;
+        const da = Math.hypot(x - ax, y - ay), dp = Math.hypot(x - px, y - py);
+        if (da < 210) { const k = (1 - da / 210) ** 2; flare += k; }
+        if (dp < 140) { const k = (1 - dp / 140) ** 2; white += k; }
+        for (const p of live) {
+          const age = (now - p.t0) / 1000, ring = age * 420, d = Math.abs(Math.hypot(x - (p.x - r.left), y - (p.y - r.top)) - ring);
+          if (d < 30) { const k = (1 - d / 30) * (1 - age / 1.7); if (p.who === "agent") flare += k * 1.3; else white += k * 1.3; }
+        }
+        if (flare > .02 || white > .02) {
+          const k = Math.min(1, flare + white), c = flare >= white ? "255,138,31" : "255,255,255";
+          a = Math.max(a, .18 + k * .82); s = 1.4 + k * 3.1;
+          ctx.fillStyle = `rgba(${c},${a.toFixed(3)})`;
+        } else ctx.fillStyle = `rgba(245,239,228,${a.toFixed(3)})`;
+        ctx.fillRect(x - s / 2, y - s / 2, s, s);
+      }
+    }
+  }
+  size(); addEventListener("resize", size);
+  if (calm) { draw(0); return; }
+  new IntersectionObserver((e) => { on = e[0].isIntersecting; }).observe(hero);
+  (function loop(now) { if (on) draw(now); requestAnimationFrame(loop); })(performance.now());
+})();
+
+/* ---------- small things ---------- */
+async function copyText(button, text, idle) {
+  try { await navigator.clipboard.writeText(text); button.textContent = "Copied"; button.classList.add("ok"); }
+  catch { button.textContent = "Select it"; }
+  setTimeout(() => { button.textContent = idle; button.classList.remove("ok"); }, 1700);
+}
+$("copy").addEventListener("click", () => copyText($("copy"), $("cmd").textContent.replace(/^\$ /, ""), "Copy"));
+document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", () => copyText(b, b.parentElement.querySelector("code").textContent, "Copy")));
+const seen = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("seen"); seen.unobserve(e.target); } }), { threshold: .12 });
+document.querySelectorAll(".reveal").forEach((el) => seen.observe(el));
+document.querySelectorAll(".cell").forEach((card) => {
+  card.addEventListener("pointermove", (e) => {
+    const r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    card.style.setProperty("--mx", x * 100 + "%"); card.style.setProperty("--my", y * 100 + "%");
+    if (!calm && !small()) { card.style.setProperty("--ry", (x - .5) * 5 + "deg"); card.style.setProperty("--rx", (.5 - y) * 5 + "deg"); }
+  });
+  card.addEventListener("pointerleave", () => { card.style.setProperty("--rx", "0deg"); card.style.setProperty("--ry", "0deg"); });
+});
+
+// the ticker is the real calls from the recorded runs, one after another
+(function ticker() {
+  const items = DATA.replays.flatMap((r) => r.calls.map((c) => {
+    const a = c.tool === "pc_do" ? `${c.args.steps.length} steps in one call` : Object.entries(c.args).map(([k, v]) => `${k}:${JSON.stringify(v)}`).join(" ");
+    return `<span><b>${esc(c.tool)}</b> ${esc(a.slice(0, 58))}</span>`;
+  }));
+  $("ticker").innerHTML = items.concat(items).join("");
+})();
+
+(function facts() {
+  const all = DATA.table.all, us = all.find((r) => r.key === "youxpc"), cua = all.find((r) => r.key === "cua");
+  const p = DATA.pointer, acts = p.virtual + p.real, speed = (cua.seconds / us.seconds).toFixed(1);
+  $("facts").innerHTML = `<div><b><i data-to="${us.passed}">${us.passed}</i> <em>of ${us.runs}</em></b><span>benchmark runs passed, across ${DATA.taskCount} desktop and web tasks</span></div>`
+    + `<div><b><i data-to="${p.virtual}">${p.virtual}</i> <em>of ${acts}</em></b><span>actions done without touching the real pointer</span></div>`
+    + `<div><b><i data-to="${speed}" data-dec="1">${speed}</i>× <em>faster</em></b><span>than Cua Driver, the one tool that scored higher, on ${Math.round(cua.tokens / us.tokens)}× fewer tokens</span></div>`;
+  const less = (a, b) => Math.round((1 - a / b) * 100);
+  const higher = all.filter((r) => r.passed > us.passed);
+  $("hero-proof").innerHTML = higher.length === 1
+    ? `<b>Passed ${us.passed} of ${us.runs} runs.</b> The one tool that scored higher, ${esc(higher[0].label.replace(/ [\d.]+$/, ""))}, took ${(higher[0].seconds / us.seconds).toFixed(1)}× as long and used ${Math.round(higher[0].tokens / us.tokens)}× the tokens. Same model, same Mac, ${DATA.taskCount} tasks. <a href="#compare">See the benchmark</a>`
+    : `<b>Passed ${us.passed} of ${us.runs} runs</b> in ${less(us.seconds, cua.seconds)}% less time and on ${less(us.tokens, cua.tokens)}% fewer tokens than Cua Driver. Same model, same Mac, ${DATA.taskCount} tasks. <a href="#compare">See the benchmark</a>`;
+  if (calm) return;
+  new IntersectionObserver((e, o) => {
+    if (!e[0].isIntersecting) return; o.disconnect();
+    const start = performance.now();
+    const items = [...document.querySelectorAll("#facts i")];
+    (function tick(now) {
+      const k = clamp((now - start) / 1100, 0, 1), eased = 1 - (1 - k) ** 3;
+      items.forEach((el) => { const to = parseFloat(el.dataset.to), dec = +(el.dataset.dec || 0); el.textContent = (to * eased).toFixed(dec); });
+      if (k < 1) later(tick);
+    })(start);
+  }, { threshold: .6 }).observe($("facts"));
+})();
+
+/* ---------- the window pulled apart, and the replay ---------- */
+const replay = { run: null, steps: [], at: 0, playing: false, token: 0, lines: [], auto: false, hold: null };
+
+function parseListing(text) {
+  let row = "";
+  return text.split("\n").map((raw) => {
+    const indent = raw.length - raw.trimStart().length, body = raw.trim();
+    const m = body.match(/^\[(e\d+)\] (\w+)(?: "([^"]*)")?/);
+    if (body.startsWith("row ")) row = (body.match(/^row "([^"]*)"/) || [])[1] || "";
+    else if (!m && indent <= 2 && !body.startsWith('"')) row = "";
+    return { raw, id: m && m[1], role: m && m[2], name: m && (m[3] || ""), row: m ? row : "" };
+  });
+}
+function plan(run) {
+  const steps = [];
+  run.calls.forEach((call, c) => {
+    if (call.tool === "pc_snapshot") { steps.push({ c, kind: "read" }); return; }
+    if (call.tool === "pc_do") {
+      call.args.steps.forEach((s, i) => {
+        if (s.click !== undefined) steps.push({ c, i, kind: "click", target: String(s.click) });
+        else if (s.type !== undefined) steps.push({ c, i, kind: "type", text: s.type, target: s.into });
+        else steps.push({ c, i, kind: "other" });
+      });
+    } else if (call.tool === "pc_click") steps.push({ c, i: 0, kind: "click", target: String(call.args.index || call.args.query) });
+    else if (call.tool === "pc_type") steps.push({ c, i: 0, kind: "type", text: call.args.text, target: call.args.index || call.args.into });
+    steps.push({ c, kind: "answer" });
+  });
+  return steps;
+}
+function lookUp(target) {
+  if (target === undefined || target === null) return null;
+  const id = String(target).replace(/[\[\] ]/g, "");
+  return replay.lines.find((l) => l.id === id) || { name: String(target) };
+}
+function findControl(doc, line) {
+  const text = (el) => (el.getAttribute("aria-label") || el.textContent).trim();
+  const byLabel = (name) => { const label = [...doc.querySelectorAll("label")].find((l) => l.textContent.trim() === name); return label && (label.control || doc.getElementById(label.htmlFor)); };
+  let scope = doc;
+  if (line.row) scope = [...doc.querySelectorAll("tr")].find((tr) => tr.cells[0] && tr.cells[0].textContent.trim() === line.row) || doc;
+  if (line.role === "button" || !line.role) { const button = [...scope.querySelectorAll("button")].find((b) => text(b) === line.name); if (button) return button; }
+  if (line.role && line.role !== "button" && line.role !== "menuitem") return byLabel(line.name);
+  return [...doc.querySelectorAll("option")].find((o) => o.textContent.trim() === line.name) || byLabel(line.name);
+}
+function spot(el) {
+  const frame = $("app"), target = el.tagName === "OPTION" ? el.parentElement : el, box = target.getBoundingClientRect();
+  return { x: frame.offsetLeft + box.left, y: frame.offsetTop + box.top, w: box.width, h: box.height };
+}
+// Bring a control into view by scrolling the little page itself. element.scrollIntoView() inside an
+// iframe also scrolls the visitor's own page, which pinned them to the replay while it played.
+function keepInView(el) {
+  const win = $("app").contentWindow, box = el.getBoundingClientRect(), h = win.innerHeight;
+  if (box.top < 8) win.scrollBy(0, box.top - 24);
+  else if (box.bottom > h - 8) win.scrollBy(0, box.bottom - h + 24);
+}
+function moveAgent(el, animate) {
+  const agent = $("agent"), target = el.tagName === "OPTION" ? el.parentElement : el;
+  keepInView(target);
+  const s = spot(el), frame = $("app");
+  agent.classList.toggle("still", !animate); agent.classList.add("shown");
+  agent.style.transform = `translate(${Math.min(s.x + s.w / 2, frame.clientWidth - 18)}px, ${s.y + s.h / 2}px)`;
+  drawChips(false);
+  return animate ? wait(460) : Promise.resolve();
+}
+function drawChips(pop) {
+  const layer = $("chips"), frame = $("app"), doc = frame.contentDocument;
+  if (!replay.lines[0] || !replay.lines[0].el) { layer.textContent = ""; return; }
+  let n = 0;
+  replay.lines.forEach((line) => {
+    if (!line.id) return;
+    let chip = line.chip;
+    const el = !line.gone && findControl(doc, line), s = el && el.tagName !== "OPTION" && spot(el);
+    if (!s || s.w < 2 || s.y < frame.offsetTop - 4 || s.y > frame.offsetTop + frame.clientHeight - 6) { if (chip) chip.classList.remove("in"); return; }
+    if (!chip) { chip = line.chip = document.createElement("span"); chip.className = "chip"; chip.innerHTML = line.id + "<i></i>"; layer.appendChild(chip); }
+    chip.style.transform = `translate(${Math.min(s.w > 70 ? s.x + s.w - 16 : Math.max(2, s.x - 8), frame.offsetLeft + frame.clientWidth - 34)}px, ${s.y - 9}px)`;
+    if (pop && !chip.classList.contains("in")) setTimeout(() => chip.classList.add("in"), 40 * n++); else chip.classList.add("in");
+  });
+}
+function markLine(line) {
+  replay.lines.forEach((l) => { if (l.el) l.el.classList.remove("on"); if (l.chip) l.chip.classList.remove("hot"); });
+  if (line && line.el) { line.el.classList.add("on"); const box = $("listing"); if (line.el.offsetTop < box.scrollTop || line.el.offsetTop > box.scrollTop + box.clientHeight - 24) box.scrollTop = line.el.offsetTop - box.clientHeight / 2; }
+  if (line && line.chip) line.chip.classList.add("hot");
+}
+function drawListing(shown) {
+  const box = $("listing");
+  if (!shown) { box.innerHTML = '<span class="empty">Nothing yet. The agent has not looked at the window.</span>'; return; }
+  box.textContent = "";
+  replay.lines.forEach((line) => {
+    const span = document.createElement("span"); span.className = "ln";
+    span.innerHTML = esc(line.raw).replace(/\[(e\d+)\]/, '<span class="id">[$1]</span>') || "&nbsp;";
+    line.el = span; box.appendChild(span);
+    if (line.id) { span.addEventListener("pointerenter", () => { if (!replay.playing) markLine(line); }); span.addEventListener("pointerleave", () => { if (!replay.playing) markLine(null); }); }
+  });
+  if (replay.run.hidden > 0) {
+    const more = document.createElement("span"); more.className = "ln empty";
+    more.textContent = `(${replay.run.hidden} more lines for the browser's own toolbar and tabs, left out here)`; box.appendChild(more);
+  }
+}
+function applyChanges(text) {
+  const changes = (text.split("Changes:")[1] || (text.match(/"changes":"((?:[^"\\]|\\.)*)"/) || [, ""])[1]).replace(/\\n/g, "\n").replace(/\\"/g, '"');
+  changes.split("\n").forEach((raw) => {
+    const m = raw.trim().match(/^([~-]) \[(e\d+)\] (.*)$/); if (!m) return;
+    const line = replay.lines.find((l) => l.id === m[2]); if (!line || !line.el) return;
+    if (m[1] === "-") { line.gone = true; line.el.classList.add("gone"); return; }
+    const pad = line.raw.match(/^\s*/)[0]; line.raw = `${pad}[${m[2]}] ${m[3]}`;
+    line.el.innerHTML = esc(line.raw).replace(/\[(e\d+)\]/, '<span class="id">[$1]</span>');
+    line.el.classList.remove("changed"); void line.el.offsetWidth; line.el.classList.add("changed");
+  });
+}
+function showAnswer(call) {
+  let text = call.result;
+  try { const parsed = JSON.parse(text); if (parsed && parsed.data) text = "changes:\n" + (parsed.data.changes || "") + `\n(pressed "${parsed.data.element}" through accessibility` + (parsed.data.pointer === "virtual" ? "; the real pointer was not used)" : ")"); } catch {}
+  return text;
+}
+function drawWire() {
+  const wire = $("wire"), step = replay.steps[replay.at - 1];
+  if (!step) { wire.innerHTML = '<span class="dir">Press Play, or step through it one action at a time.</span>'; return; }
+  const call = replay.run.calls[step.c]; let html = `<span class="dir">the agent sends</span>`;
+  if (call.tool === "pc_do") {
+    html += `<span class="step done">pc_do  steps:</span>`;
+    call.args.steps.forEach((s, i) => { const state = step.kind === "answer" || i < step.i ? "done" : i === step.i ? "now" : ""; html += `<span class="step ${state}">  ${esc(JSON.stringify(s))}</span>`; });
+  } else {
+    const args = Object.entries(call.args).map(([k, v]) => `${k}:${JSON.stringify(v)}`).join("  ");
+    html += `<span class="step ${step.kind === "answer" || step.kind === "read" ? "done" : "now"}">${call.tool}  ${esc(args)}</span>`;
+  }
+  if (step.kind === "answer") html += `<span class="dir">YouxPC answers</span><span class="back">${esc(showAnswer(call))}</span>`;
+  if (step.kind === "read") html += `<span class="dir">YouxPC answers</span><span class="back">${replay.lines.length} lines, shown above</span>`;
+  wire.innerHTML = html;
+  const now = wire.querySelector(".now"); wire.scrollTop = now ? Math.max(0, now.offsetTop - 70) : wire.scrollHeight;
+}
+async function act(step, animate) {
+  const doc = $("app").contentDocument;
+  if (step.kind === "read") { if (!replay.lines[0].el) { drawListing(true); drawChips(animate); } markLine(null); return; }
+  if (step.kind === "answer") { markLine(null); applyChanges(replay.run.calls[step.c].result); drawChips(false); return; }
+  if (step.kind === "other") return;
+  const line = lookUp(step.target); if (line) markLine(line);
+  const el = line && findControl(doc, line);
+  if (!el) { if (animate) await wait(250); return; }
+  await moveAgent(el, animate);
+  if (animate) { const a = $("agent"); a.classList.remove("press"); void a.offsetWidth; a.classList.add("press"); stage.press = .6; }
+  if (step.kind === "click") {
+    if (el.tagName === "OPTION") { el.parentElement.value = el.value; el.parentElement.dispatchEvent(new Event("change", { bubbles: true })); }
+    else if (el.tagName !== "SELECT" && !/^(text|email|search|)$/.test(el.type || "x") && el.tagName !== "TEXTAREA") el.click();
+  } else if (step.kind === "type") {
+    el.value = ""; for (const ch of step.text) { el.value += ch; if (animate) await wait(22); }
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  if (animate) await wait(220);
+  drawChips(false);
+}
+function describe() {
+  const run = replay.run, total = replay.steps.length, step = replay.steps[replay.at - 1];
+  $("where").textContent = replay.at === 0 ? `${run.calls.length} calls to replay` : `Call ${step.c + 1} of ${run.calls.length}` + (replay.at === total ? ", finished" : "");
+  $("back").disabled = replay.at === 0; $("next").disabled = replay.at === total;
+  $("play").textContent = replay.playing ? "Pause" : replay.at === total ? "Play again" : "Play";
+}
+function loadPage(run) {
+  return new Promise((done) => {
+    const frame = $("app");
+    frame.onload = () => {
+      const win = frame.contentWindow, focus = win.HTMLElement.prototype.focus;
+      win.HTMLElement.prototype.focus = function (o) { return focus.call(this, Object.assign({}, o, { preventScroll: true })); };
+      const h = frame.contentDocument.documentElement.scrollHeight; frame.style.height = clamp(h + 8, 360, 600) + "px"; done();
+    };
+    frame.srcdoc = run.page;
+  });
+}
+async function goTo(n) {
+  replay.token++; replay.playing = false;
+  replay.lines = parseListing(replay.run.listing); $("chips").textContent = "";
+  await loadPage(replay.run);
+  $("agent").classList.add("still"); $("agent").classList.remove("shown"); $("agent").style.transform = "translate(40px,40px)";
+  drawListing(false); replay.at = 0;
+  for (let i = 0; i < n; i++) { replay.at = i + 1; await act(replay.steps[i], false); }
+  drawWire(); describe();
+}
+async function forward(animate) {
+  if (replay.at >= replay.steps.length) return;
+  const step = replay.steps[replay.at]; replay.at++; drawWire(); describe(); await act(step, animate);
+}
+async function play() {
+  if (replay.at >= replay.steps.length) await goTo(0);
+  const mine = ++replay.token; replay.playing = true; describe();
+  while (replay.playing && mine === replay.token && replay.at < replay.steps.length) {
+    await forward(!calm); if (mine !== replay.token) return;
+    const done = replay.steps[replay.at - 1]; await wait(done.kind === "answer" ? 1500 : done.kind === "read" ? 1300 : 60);
+  }
+  if (mine === replay.token) { replay.playing = false; describe(); }
+}
+async function choose(id) {
+  const run = DATA.replays.find((r) => r.id === id); replay.run = run; replay.steps = plan(run);
+  [...$("picker").children].forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.id === id)));
+  $("ask").innerHTML = `The agent was asked: <b>${esc(run.sentence)}</b>`;
+  $("win-title").textContent = run.drawn ? "Calculator" : "Brave Browser";
+  $("see-title").textContent = run.drawn ? "left: a drawing of Calculator" : "left: the real test page";
+  const moved = (run.pointer["system-returned"] || 0) + (run.pointer.system || 0);
+  $("fact").innerHTML = `In the recorded run this took <b>${run.seconds.toFixed(1)} seconds</b> and <b>${run.toolCalls} tool calls</b> with ${DATA.model}, most of it the model thinking between calls. `
+    + (moved === 0 ? "Every action went through accessibility; the real pointer was not used." : `${moved} action(s) used the real pointer and put it back.`);
+  await goTo(0);
+}
+DATA.replays.forEach((run) => {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = run.label; b.dataset.id = run.id; b.setAttribute("aria-pressed", "false");
+  b.addEventListener("click", async () => { await choose(run.id); if (replay.auto) { await forward(false); } }); $("picker").appendChild(b);
+});
+$("play").addEventListener("click", () => { if (replay.playing) { replay.playing = false; replay.token++; describe(); } else play(); });
+$("next").addEventListener("click", async () => { replay.playing = false; replay.token++; await forward(!calm); });
+$("back").addEventListener("click", () => goTo(Math.max(0, replay.at - 1)));
+$("restart").addEventListener("click", () => goTo(0));
+addEventListener("resize", () => drawChips(false));
+
+// the tilt: pulled apart as it scrolls in, flat once it is in place
+function setTilt() {
+  if (calm || small()) { $("rig").style.setProperty("--t", 1); return 1; }
+  if (replay.hold !== null) { $("rig").style.setProperty("--t", replay.hold); return replay.hold; }
+  const r = $("scene").getBoundingClientRect(), raw = clamp((innerHeight * .98 - r.top) / (innerHeight * .5), 0, 1), t = raw * raw * (3 - 2 * raw);
+  $("rig").style.setProperty("--t", t.toFixed(3)); return t;
+}
+function onScroll() {
+  const t = setTilt();
+  if (t > .97 && !replay.auto && replay.run && !calm) { replay.auto = true; if (replay.at <= 1) play(); }
+}
+addEventListener("scroll", () => requestAnimationFrame(onScroll), { passive: true });
+$("explode").addEventListener("click", () => {
+  if (calm || small()) return;
+  const from = replay.hold === null ? 1 : replay.hold, to = from > .5 ? 0 : 1, start = performance.now();
+  $("explode").textContent = to === 0 ? "Put it back" : "Pull it apart";
+  const tick = (now) => { const k = clamp((now - start) / 900, 0, 1), e = k * k * (3 - 2 * k); replay.hold = from + (to - from) * e; setTilt(); if (k < 1) requestAnimationFrame(tick); else if (to === 1) replay.hold = null; };
+  requestAnimationFrame(tick);
+});
+// the first look happens before any scrolling, so the pulled-apart view has ids to lift
+choose(DATA.replays[0].id).then(async () => { await forward(false); onScroll(); });
+
+/* ---------- ids stay with their control ---------- */
+(function rows() {
+  const people = ["Ines Varga", "Marlow Quist", "Dara Okafor", "Tessa Bright"];
+  function draw(removed) {
+    ["bad", "good"].forEach((kind) => {
+      const box = $("rows-" + kind); box.textContent = ""; let position = 0;
+      people.forEach((name, i) => {
+        const gone = removed && i === 0, id = kind === "good" || gone ? i + 1 : ++position;
+        const item = document.createElement("div"); item.className = "rowitem" + (gone ? " out" : "");
+        item.innerHTML = `<span>${name}</span><code class="${kind === "bad" && removed && !gone ? "moved" : ""}">e${id}</code>`;
+        box.appendChild(item);
+      });
+    });
+    $("verdict").innerHTML = removed
+      ? `Numbered by position, every id moved up: <b>e4 is gone and e3 now means Tessa</b>, so the id the agent read for Dara would act on Tessa. On the right each id still means what it meant, and e1 is retired for good.`
+      : `The agent has read this list. It plans to reject Tessa using the id it saw, <span class="mono">e4</span>.`;
+  }
+  let stepped = false;
+  $("row-go").addEventListener("click", () => { if (stepped) return; stepped = true; draw(false); setTimeout(() => {
+    ["bad", "good"].forEach((kind) => $("rows-" + kind).firstChild.classList.add("out")); setTimeout(() => draw(true), 520); }, 60); });
+  $("row-reset").addEventListener("click", () => { stepped = false; draw(false); });
+  draw(false);
+})();
+
+/* ---------- one decision, many actions ---------- */
+(function keys() {
+  const run = DATA.replays.find((r) => r.id === "calc-multiply"), call = run && run.calls.find((c) => c.tool === "pc_do");
+  const steps = call ? call.args.steps : [{ click: "4" }, { click: "7" }, { click: "Multiply" }, { click: "1" }, { click: "9" }, { click: "Equals" }];
+  const face = { Multiply: "×", Equals: "=", Add: "+", Subtract: "−", Divide: "÷", "All Clear": "AC", e11: "AC" };
+  const box = $("keys");
+  steps.forEach((s) => { const k = document.createElement("span"); k.className = "key"; k.textContent = face[s.click] || s.click; box.appendChild(k); });
+  $("do-snip").innerHTML = `<span class="k">pc_do</span> steps:[\n` + steps.map((s) => `  ${esc(JSON.stringify(s))}`).join(",\n") + `\n]\n\n<span class="add">+ "47 × 19"\n+ "893"</span>`;
+  let busy = false;
+  async function tap() { if (busy || calm) return; busy = true; for (const k of box.children) { k.classList.add("down"); await wait(130); k.classList.remove("down"); await wait(60); } busy = false; }
+  box.closest(".cell").addEventListener("pointerenter", tap);
+  new IntersectionObserver((e, o) => { if (e[0].isIntersecting) { tap(); o.disconnect(); } }, { threshold: .6 }).observe(box);
+})();
+
+/* ---------- it says what changed ---------- */
+(function changes() {
+  const out = $("chg-snip"), btn = $("chg-go");
+  const call = `<span class="k">pc_click</span> index:"e23"`;
+  const lines = [`<span class="chg">~ [e23] button "Register" (focused)</span>`, `<span class="chg">~ [e19] popupbutton "Team" = "Platform"</span>`, `<span class="add">+ "Registered."</span>`];
+  let token = 0;
+  function idle() { out.innerHTML = `<span class="p">$ </span>${call}\n<span class="p">(press the button to see the answer)</span>`; }
+  async function run() {
+    const mine = ++token; btn.disabled = true;
+    out.innerHTML = `<span class="p">$ </span>${call}` + lines.map((l) => `<span class="l hide">${l}</span>`).join("");
+    const spans = [...out.querySelectorAll(".l")];
+    for (const s of spans) { await wait(calm ? 0 : 420); if (mine !== token) return; s.classList.remove("hide"); }
+    btn.disabled = false; btn.textContent = "Press it again";
+  }
+  btn.addEventListener("click", run);
+  idle();
+})();
+
+/* ---------- a shared name is refused, an id is not ---------- */
+(function ambiguity() {
+  const people = ["Ines Varga", "Marlow Quist", "Dara Okafor", "Tessa Bright", "Noor Haddad", "Jun Park"];
+  const list = $("amb-rows"), out = $("amb-out");
+  let done = -1;
+  const idOf = (i) => "e" + (14 + i * 2);
+  function draw() {
+    list.innerHTML = people.map((n, i) => `<li class="amb-row${done === i ? " done" : ""}"><span>${n}</span><button type="button" data-i="${i}"><code>${idOf(i)}</code>${done === i ? "Approved" : "Approve"}</button></li>`).join("");
+  }
+  function idle() { out.innerHTML = `<span class="p">Six rows, six buttons, one name. Ask for it by name, or press one row's own id.</span>`; }
+  $("amb-name").addEventListener("click", () => {
+    done = -1; draw();
+    const listed = people.map((n, i) => `${idOf(i)} in row "${n}"`).join("; ");
+    out.innerHTML = `<span class="p">$ </span><span class="k">pc_click</span> query:"Approve"\n<span class="del">6 items are named "Approve". Nothing was done.</span>\n<span class="chg">Use the id of the one you mean: ${esc(listed)}.</span>`;
+    list.querySelectorAll(".amb-row").forEach((row) => { row.classList.remove("warn"); void row.offsetWidth; row.classList.add("warn"); });
+  });
+  $("amb-reset").addEventListener("click", () => { done = -1; draw(); idle(); });
+  list.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    done = +b.dataset.i; draw();
+    out.innerHTML = `<span class="p">$ </span><span class="k">pc_click</span> index:"${idOf(done)}"\n<span class="add">Pressed ${idOf(done)} in row "${people[done]}".</span>\nThe other five were not touched.`;
+  });
+  draw(); idle();
+})();
+
+/* ---------- how it measured up: one metric per chart ---------- */
+const ORDER = ["youxpc", "cua", "ghost", "peekaboo", "playwright"];
+const shortName = (label) => label.replace(/ \d[\d.]*$/, "");
+const minutes = (s) => (s / 60).toFixed(1);
+const millions = (n) => (n / 1e6).toFixed(1) + "M";
+let scope = "all", chartsSeen = false;
+
+function metrics(rows, us) {
+  const names = (list) => list.map((r) => shortName(r.label)).join(" and ");
+  return [
+    { title: "Got it right", unit: `Runs passed, out of ${us.runs}. More is better.`, value: (r) => r.passed, text: (r) => String(r.passed), axis: us.runs, high: true,
+      take() {
+        const top = Math.max(...rows.map((r) => r.passed)), leaders = rows.filter((r) => r.passed === top);
+        if (us.passed === top) return leaders.length > 1 ? `Level with ${names(leaders.filter((r) => r !== us))}.` : "<b>Most runs passed.</b>";
+        const gap = top - us.passed;
+        return `<b>${names(leaders)}</b> passed ${gap === 1 ? "one more run" : gap + " more runs"}.`;
+      } },
+    { title: "Finished fast", unit: "Minutes to finish every task. Less is better.", value: (r) => r.seconds, text: (r) => minutes(r.seconds), axis: Math.max(...rows.map((r) => r.seconds)), high: false,
+      take() {
+        const sorted = rows.slice().sort((a, b) => a.seconds - b.seconds);
+        if (sorted[0] === us) return `The next fastest, <b>${shortName(sorted[1].label)}</b>, took ${minutes(sorted[1].seconds)} minutes.`;
+        return `<b>${shortName(sorted[0].label)}</b> was ${Math.round((1 - sorted[0].seconds / us.seconds) * 100)}% faster.`;
+      } },
+    { title: "Light on tokens", unit: "Tokens read and written, in millions. Less is better.", value: (r) => r.tokens, text: (r) => millions(r.tokens), axis: Math.max(...rows.map((r) => r.tokens)), high: false,
+      take() {
+        const sorted = rows.slice().sort((a, b) => a.tokens - b.tokens);
+        if (sorted[0] === us) return `The next lowest, <b>${shortName(sorted[1].label)}</b>, used ${millions(sorted[1].tokens)}: ${(sorted[1].tokens / us.tokens).toFixed(1)}× as many.`;
+        return `<b>${shortName(sorted[0].label)}</b> used ${Math.round((1 - sorted[0].tokens / us.tokens) * 100)}% fewer.`;
+      } },
+  ];
+}
+function drawCharts() {
+  const rows = ORDER.map((k) => DATA.table[scope].find((r) => r.key === k)).filter(Boolean), us = rows.find((r) => r.key === "youxpc");
+  const box = $("charts");
+  box.classList.remove("go");
+  box.innerHTML = metrics(rows, us).map((m) => {
+    const best = rows.filter((r) => m.high ? m.value(r) === Math.max(...rows.map(m.value)) : m.value(r) === Math.min(...rows.map(m.value)));
+    return `<article class="chart"><h3>${m.title}</h3><p class="unit">${m.unit}</p><div class="bars">`
+      + rows.map((r) => `<div class="brow${r === us ? " us" : ""}${best.includes(r) ? " best" : ""}"><span class="bname" title="${esc(r.label)}">${esc(shortName(r.label))}</span>`
+        + `<div class="btrack"><div class="bfill" style="--w:${(100 * m.value(r) / m.axis).toFixed(1)}%"></div></div><b class="bval">${m.text(r)}</b></div>`).join("")
+      + `</div><p class="take">${m.take()}</p></article>`;
+  }).join("");
+  const pw = rows.find((r) => r.key === "playwright");
+  $("chart-note").textContent = !pw
+    ? "Playwright MCP is not in this chart: it drives its own headless browser and cannot operate the four desktop-app tasks. Switch to the web tasks to see it. Peekaboo is shown with its --allow-foreground option; at its default, background-only setting it passed 22 of 51."
+    : (pw.passed >= us.passed && pw.seconds < us.seconds && us.tokens < pw.tokens && us.calls < pw.calls)
+      ? `On web pages Playwright MCP and YouxPC are about level: it passed ${pw.passed - us.passed === 0 ? "the same number of runs" : (pw.passed - us.passed === 1 ? "one more run" : (pw.passed - us.passed) + " more runs")} and was ${Math.round((1 - pw.seconds / us.seconds) * 100)}% faster; YouxPC read ${Math.round((1 - us.tokens / pw.tokens) * 100)}% fewer tokens and made ${Math.round((1 - us.calls / pw.calls) * 100)}% fewer calls, and also drives desktop apps and a visible browser.`
+      : "See the totals below for every tool.";
+  [...$("scope").children].forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.scope === scope)));
+  drawTotals(); drawPerTask();
+  if (chartsSeen) setTimeout(() => box.classList.add("go"), 60);
+}
+function drawTotals() {
+  const rows = DATA.table[scope].slice().sort((a, b) => a.seconds - b.seconds);
+  $("totals").innerHTML = `<thead><tr><th scope="col">Tool</th><th scope="col">Runs passed</th><th scope="col">Total time</th><th scope="col">Tool calls</th><th scope="col">Tokens read and written</th></tr></thead><tbody>`
+    + rows.map((r) => `<tr class="${r.key === "youxpc" ? "us" : ""}"><td>${esc(r.label)}${r.note ? `<small>${esc(r.note)}</small>` : ""}</td><td>${r.passed} of ${r.runs}</td><td>${fmt(r.seconds)} s</td><td>${fmt(r.calls)}</td><td>${fmt(r.tokens)}</td></tr>`).join("") + "</tbody>";
+}
+function drawPerTask() {
+  const keys = ORDER.filter((k) => scope === "all" ? k !== "playwright" : true);
+  const labelFor = (k) => { const t = DATA.race[0].tools.find((x) => x.key === k); return t ? shortName(t.label) : k; };
+  const tasks = DATA.race.filter((t) => scope === "all" || t.id.startsWith("web-"));
+  $("pertask").innerHTML = `<thead><tr><th scope="col">Task</th>${keys.map((k) => `<th scope="col" class="${k === "youxpc" ? "us" : ""}">${esc(labelFor(k))}</th>`).join("")}</tr></thead><tbody>`
+    + tasks.map((t) => {
+      const cells = keys.map((k) => t.tools.find((x) => x.key === k));
+      const perfect = cells.filter((c) => c && !c.none && c.passed === c.runs);
+      const pool = perfect.length ? perfect : cells.filter((c) => c && !c.none);
+      const fastest = Math.min(...pool.map((c) => c.seconds));
+      return `<tr><td>${esc(t.label)}${t.hard ? '<span class="tag-hard">harder</span>' : ""}</td>` + cells.map((c, i) => {
+        if (!c || c.none) return `<td class="none" title="Cannot operate desktop apps">–</td>`;
+        const cls = [keys[i] === "youxpc" ? "us" : "", pool.includes(c) && c.seconds === fastest ? "best" : "", c.passed < c.runs ? "miss" : ""].join(" ");
+        return `<td class="${cls}">${c.seconds.toFixed(1)}${c.passed < c.runs ? `<span>${c.passed}/${c.runs} passed</span>` : ""}</td>`;
+      }).join("") + "</tr>";
+    }).join("") + "</tbody>";
+}
+[...$("scope").children].forEach((b) => b.addEventListener("click", () => { scope = b.dataset.scope; drawCharts(); }));
+$("replay").addEventListener("click", () => { const box = $("charts"); box.classList.remove("go"); void box.offsetWidth; setTimeout(() => box.classList.add("go"), 80); });
+$("num-intro").textContent = `${DATA.taskCount} tasks, ${DATA.trials} runs of each per tool, all driven by ${DATA.model}. Ten are short (Calculator, TextEdit, simple web pages) and seven are harder: rows of identical buttons, a seven-field form, a confirm dialog, tabs, and content that arrives late. Tokens are everything read, cached or not, plus everything written.`;
+(function failedRun() {
+  const f = DATA.failure, steps = f.call.steps.map((x) => JSON.stringify(x)).join(", ");
+  const listing = esc(f.listing).replace(/(\[e20\][^\n]*)/, "<mark>$1</mark>").replace(/(\[e21\][^\n]*)/, "<mark>$1</mark>");
+  $("fail-body").innerHTML = `<h4>The task</h4><p>${esc(f.sentence)}</p>`
+    + `<h4>What the agent had read (Tessa Bright's row is the last one; Reject is e21)</h4><pre class="snip">${listing}</pre>`
+    + `<h4>What the model sent</h4><pre class="snip"><span class="k">pc_do</span> steps:[${esc(steps)}]</pre>`
+    + `<h4>What YouxPC did and answered</h4><pre class="snip">${esc(f.answer)}</pre>`
+    + `<h4>What the model said next</h4><p>"${esc(f.said)}"</p>`
+    + `<p class="verdict">YouxPC pressed e20 because it was asked to, and said so. The model meant e21. On this page, with this model, the task passed ${f.passed} of ${f.runs} runs on YouxPC, counting both of its profiles. It still counts as a failed run here, because the benchmark checks what the page ended up showing, the same rule applied to every tool in the charts.</p>`;
+})();
+drawCharts();
+new IntersectionObserver((e, o) => { if (e[0].isIntersecting) { o.disconnect(); chartsSeen = true; setTimeout(() => $("charts").classList.add("go"), 120); } }, { threshold: .35 }).observe($("charts"));
+
+/* ---------- what it will not touch: pick an app ---------- */
+(function tryApps() {
+  const calc = DATA.replays.find((r) => r.drawn), web = DATA.replays.find((r) => !r.drawn);
+  const head = (run, n) => run.listing.split("\n").slice(0, n).join("\n");
+  const apps = [
+    { name: "Calculator", id: "com.apple.calculator", ok: () => head(calc, 9) },
+    { name: "Brave Browser", id: "com.brave.Browser", ok: () => head(web, 9) },
+    { name: "1Password", id: "com.1password.1password", why: "it is a password manager" },
+    { name: "Keychain Access", id: "com.apple.keychainaccess", why: "it is Keychain Access" },
+    { name: "System Settings", id: "com.apple.systempreferences", why: "it is System Settings" },
+    { name: "Terminal", id: "com.apple.Terminal", why: "it is a terminal" },
+    { name: "the app your agent runs in", id: "its bundle id", why: "it is the app hosting this agent", label: "your agent's own app" },
+  ];
+  const box = $("apps"), out = $("try-out");
+  function show(app) {
+    [...box.children].forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.name === app.name)));
+    const shown = app.label || app.name;
+    const call = `<span class="p">$ </span><span class="k">pc_snapshot</span> app:"${esc(app.name)}"\n`;
+    out.innerHTML = app.why
+      ? call + `<span class="no">'${esc(app.name)}' (${esc(app.id)}) is blocked by the YouxPC app policy because ${esc(app.why)}.</span>\nDo not look for another way into this app. Only the user can allow it, by adding its bundle ID to YOUXPC_ALLOW_APPS in the MCP server configuration.`
+      : call + `<span class="ok">allowed</span>, the first lines of the window as the agent reads it:\n${esc(app.ok())}\n<span class="p">…</span>`;
+  }
+  apps.forEach((app) => {
+    const b = document.createElement("button"); b.type = "button"; b.dataset.name = app.name; b.textContent = app.label || app.name;
+    if (app.why) b.classList.add("no"); b.setAttribute("aria-pressed", "false"); b.addEventListener("click", () => show(app)); box.appendChild(b);
+  });
+  show(apps[2]);
+})();
+
+/* ---------- receipts ---------- */
+(function receipts() {
+  const lines = [["p", "$ youxpc receipts"], ["ok", "04:59:58  ok    pc_snapshot  Google Chrome                 (111ms)"],
+    ["ok", "05:00:00  ok    pc_click     YouxAI Apply Agent  pointer:virtual  +28 -1"], ["no", "05:00:00  FAIL  pc_snapshot  Terminal   blocked by the app policy"],
+    ["ok", "05:00:02  ok    pc_terminal  run `bc -q`                   (1918ms)"], ["p", ""], ["p", "Every call is written down. Typed text is left out unless you ask."]];
+  const out = $("term-out"), show = (n) => { out.innerHTML = lines.slice(0, n).map(([c, t]) => `<span class="${c}">${esc(t)}</span>`).join("\n"); };
+  if (calm) { show(lines.length); return; }
+  new IntersectionObserver(async (e, o) => {
+    if (!e[0].isIntersecting) return; o.disconnect();
+    for (let i = 1; i <= lines.length; i++) { show(i); await wait(i === 1 ? 500 : 240); }
+  }, { threshold: .5 }).observe(out);
+})();
+
+/* ---------- this page, as an agent reads it ---------- */
+(function agentView() {
+  const tag = () => [...document.querySelectorAll("header a, header button, main a, main button, main select, footer a")].forEach((el, i) => { el.dataset.eid = "e" + (i + 1); });
+  const role = (el) => el.tagName === "A" ? "link" : el.tagName === "SELECT" ? "popupbutton" : "button";
+  const name = (el) => (el.getAttribute("aria-label") || (el.tagName === "SELECT" ? (el.labels[0] || {}).textContent : el.textContent) || "").trim().replace(/\s+/g, " ").slice(0, 70);
+  function build() {
+    tag();
+    const out = ['YouxPC — "' + esc(document.title) + '"'];
+    document.querySelectorAll("header.hero, main > section, footer").forEach((part) => {
+      const h = part.querySelector("h1, h2");
+      out.push((part.tagName === "FOOTER" ? "footer" : part.matches(".hero") ? "toolbar and opening" : "section") + (h ? ` "${esc(h.innerText.trim().replace(/\s+/g, " "))}"` : ""));
+      part.querySelectorAll("h3, .lead, .facts b, a, button, select").forEach((el) => {
+        if (el.offsetParent === null) return;
+        if (el.dataset.eid) out.push(`  <a data-go="${el.dataset.eid}">[${el.dataset.eid}]</a> ${role(el)} "${esc(name(el))}"` + (el.getAttribute("aria-pressed") === "true" ? " (selected)" : "") + (el.disabled ? " (disabled)" : "") + (el.tagName === "SELECT" ? ` = "${esc(el.selectedOptions[0].textContent.slice(0, 40))}…"` : ""));
+        else if (el.tagName === "H3") out.push(`  # "${esc(el.textContent.trim())}"`);
+        else { const t = [...el.childNodes].map((n) => (n.dataset && n.dataset.to) || n.textContent).join("").trim().replace(/\s+/g, " "); out.push(`  "${esc(t.slice(0, 96))}${t.length > 96 ? "…" : ""}"`); }
+      });
+    });
+    $("av-out").innerHTML = out.join("\n");
+  }
+  tag();
+  const close = () => { $("agentview").classList.remove("open"); document.body.style.overflow = ""; };
+  $("eye").addEventListener("click", () => { build(); $("agentview").classList.add("open"); document.body.style.overflow = "hidden"; $("av-close").focus(); });
+  $("av-close").addEventListener("click", () => { close(); $("eye").focus(); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && $("agentview").classList.contains("open")) { close(); $("eye").focus(); } });
+  $("av-out").addEventListener("click", (e) => {
+    const go = e.target.closest("[data-go]"); if (!go) return;
+    const el = document.querySelector(`[data-eid="${go.dataset.go}"]`); close(); if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: calm ? "auto" : "smooth" });
+    setTimeout(() => { el.classList.remove("pulse"); void el.offsetWidth; el.classList.add("pulse"); el.focus({ preventScroll: true }); }, 500);
+  });
+})();
+</script>
+</body>
+</html>

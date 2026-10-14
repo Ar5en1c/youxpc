@@ -1,0 +1,7 @@
+__pycache__/
+# Per-run records and summaries are published. Raw agent output is not: it is large
+# (some tools return screenshots) and carries local paths and session ids.
+# results/*/traces/ holds a cleaned copy of the YouxPC runs (scripts/publish_traces.py).
+results/*/raw/
+results/*/records/
+results/shakedown*/

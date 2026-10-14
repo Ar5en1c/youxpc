@@ -1,0 +1,5 @@
+{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "toolu_01STxLP8emn94fQHgtJHT3wR", "name": "mcp__youxpc__pc_look", "input": {"app": "TextEdit"}}]}}
+{"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "toolu_01STxLP8emn94fQHgtJHT3wR", "is_error": false, "content": "TextEdit — \"bench-note.txt\"\n[e1] textarea (focused)\n[e2] menubutton \"document actions\" (disabled)\n\"bench-note.txt\""}]}}
+{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "toolu_018CioRLFLHd3Daot4Jy5XmK", "name": "mcp__youxpc__pc_type", "input": {"n": "e1", "text": "quartz-4821"}}]}}
+{"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "toolu_018CioRLFLHd3Daot4Jy5XmK", "is_error": false, "content": "OK. Typed the text.\n\nScreen now:\nTextEdit — \"bench-note.txt\"\n[e1] textarea = \"quartz-4821\" (focused)\n[e2] menubutton \"document actions\" (disabled)\n\"bench-note.txt\""}]}}
+{"type": "assistant", "message": {"content": [{"type": "text", "text": "I typed \"quartz-4821\" into the open bench-note.txt document in TextEdit. The text field now reads exactly \"quartz-4821\"."}]}}

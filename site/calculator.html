@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Calculator</title>
+<style>
+body{margin:0;font:16px/1.3 -apple-system,"Avenir Next",system-ui,sans-serif;background:#2b2b2e;color:#fff;display:flex;justify-content:center;padding:1.2rem 0}
+.calc{width:232px}
+.screen{height:86px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;padding:0 .5rem .4rem}
+#expr{font-size:.9rem;color:#a9a9ae;min-height:1.2em}
+#out{font-size:2.5rem;font-weight:300;letter-spacing:-.01em}
+.keys{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+button{font:inherit;font-size:1.25rem;border:0;border-radius:50%;aspect-ratio:1;color:#fff;background:#59595d;cursor:default}
+button.fn{background:#7a7a7f}
+button.op{background:#f09a37}
+button.pressed{filter:brightness(1.45)}
+</style>
+</head>
+<body>
+<div class="calc">
+<div class="screen"><div id="expr"></div><div id="out">0</div></div>
+<div class="keys" id="keys"></div>
+</div>
+<script>
+// A drawing of Calculator, laid out like the app, with the names the accessibility tree gives its keys.
+var KEYS = [["⌫","Delete","fn"],["AC","All Clear","fn"],["%","Percent","fn"],["÷","Divide","op"],
+            ["7","7"],["8","8"],["9","9"],["×","Multiply","op"],
+            ["4","4"],["5","5"],["6","6"],["−","Subtract","op"],
+            ["1","1"],["2","2"],["3","3"],["+","Add","op"],
+            ["±","Change Sign"],["0","0"],[".","Point"],["=","Equals","op"]];
+var SIGN = {Divide:"÷",Multiply:"×",Subtract:"−",Add:"+"};
+var cur = "0", prev = null, op = null, fresh = true;
+function show(){ document.getElementById("out").textContent = cur; }
+function calc(a, o, b){ a = parseFloat(a); b = parseFloat(b); return String(o === "Add" ? a + b : o === "Subtract" ? a - b : o === "Multiply" ? a * b : a / b); }
+function press(name){
+  if (/^[0-9]$/.test(name)) { cur = fresh || cur === "0" ? name : cur + name; fresh = false; }
+  else if (name === "Point") { if (cur.indexOf(".") < 0) cur += "."; fresh = false; }
+  else if (name === "All Clear") { cur = "0"; prev = null; op = null; fresh = true; document.getElementById("expr").textContent = ""; }
+  else if (name === "Delete") { cur = cur.length > 1 ? cur.slice(0, -1) : "0"; }
+  else if (name === "Change Sign") { cur = cur.charAt(0) === "-" ? cur.slice(1) : "-" + cur; }
+  else if (name === "Percent") { cur = String(parseFloat(cur) / 100); }
+  else if (SIGN[name]) { if (op && !fresh) cur = calc(prev, op, cur); prev = cur; op = name; fresh = true; document.getElementById("expr").textContent = prev + " " + SIGN[name]; }
+  else if (name === "Equals" && op) { document.getElementById("expr").textContent = prev + " " + SIGN[op] + " " + cur; cur = calc(prev, op, cur); op = null; fresh = true; }
+  show();
+}
+KEYS.forEach(function (k) {
+  var b = document.createElement("button");
+  b.type = "button"; b.textContent = k[0]; b.setAttribute("aria-label", k[1]); if (k[2]) b.className = k[2];
+  b.addEventListener("click", function () { press(k[1]); b.classList.add("pressed"); setTimeout(function () { b.classList.remove("pressed"); }, 160); });
+  document.getElementById("keys").appendChild(b);
+});
+</script>
+</body>
+</html>

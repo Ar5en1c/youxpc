@@ -1,4 +1,4 @@
-# Ghost OS Vision Sidecar Dependencies
+# YouxPC Vision Sidecar Dependencies
 #
 # These are the Python packages needed for the vision sidecar.
 #

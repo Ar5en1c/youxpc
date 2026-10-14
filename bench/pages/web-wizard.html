@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup form</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:42rem}label{display:block;margin:.75rem 0 .25rem}input,select,button{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}</style>
+</head>
+<body data-page="web-wizard">
+<main>
+<h1>Setup form</h1>
+<form id="f" autocomplete="off">
+<p id="progress" role="status">Step 1 of 3</p>
+<fieldset id="s1"><legend>Step 1</legend>
+<label for="v1">First value</label><input id="v1" type="text" required>
+<div class="row"><button type="button" data-next="1">Next</button></div></fieldset>
+<fieldset id="s2" hidden><legend>Step 2</legend>
+<label for="v2">Second value</label><input id="v2" type="text" required>
+<div class="row"><button type="button" data-next="2">Next</button></div></fieldset>
+<fieldset id="s3" hidden><legend>Step 3</legend>
+<label for="v3">Third value</label><input id="v3" type="text" required>
+<div class="row"><button type="submit">Finish</button></div></fieldset>
+</form>
+<p id="done" role="status"></p>
+</main>
+<script src="_common.js"></script>
+<script>
+function val(n) { return document.getElementById('v' + n).value; }
+document.querySelectorAll('button[data-next]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var n = parseInt(b.getAttribute('data-next'), 10);
+    if (!val(n)) { return; }
+    rec({ event: 'step', step: n, value: val(n) });
+    document.getElementById('s' + n).hidden = true;
+    document.getElementById('s' + (n + 1)).hidden = false;
+    document.getElementById('progress').textContent = 'Step ' + (n + 1) + ' of 3';
+    document.getElementById('v' + (n + 1)).focus();
+  });
+});
+document.getElementById('f').addEventListener('submit', function (e) {
+  e.preventDefault();
+  if (!val(3)) { return; }
+  rec({ event: 'finish', values: [val(1), val(2), val(3)] });
+  document.getElementById('s3').hidden = true;
+  document.getElementById('progress').textContent = '';
+  document.getElementById('done').textContent = 'Finished.';
+});
+</script>
+</body>
+</html>

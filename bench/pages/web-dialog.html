@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Item details</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:42rem}label{display:block;margin:.75rem 0 .25rem}input,select,button{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}</style>
+<style>#overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}#overlay[hidden]{display:none}#dlg{background:#fff;color:#000;padding:1.5rem;border-radius:8px;min-width:18rem}</style>
+</head>
+<body data-page="web-dialog">
+<main>
+<h1>Item details</h1>
+<p>Current name: <strong id="current">Untitled</strong></p>
+<button type="button" id="open">Rename</button>
+</main>
+<div id="overlay" hidden>
+<div id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+<h2 id="dlg-title">Rename item</h2>
+<label for="newname">New name</label>
+<input id="newname" name="newname" type="text" autocomplete="off">
+<div class="row"><button type="button" id="ok">OK</button><button type="button" id="cancel">Cancel</button></div>
+</div>
+</div>
+<script src="_common.js"></script>
+<script>
+var overlay = document.getElementById('overlay'), input = document.getElementById('newname');
+document.getElementById('open').addEventListener('click', function () {
+  overlay.hidden = false; input.value = ''; input.focus(); rec({ event: 'dialog_open' });
+});
+document.getElementById('ok').addEventListener('click', function () {
+  rec({ event: 'rename', value: input.value });
+  document.getElementById('current').textContent = input.value;
+  overlay.hidden = true;
+});
+document.getElementById('cancel').addEventListener('click', function () {
+  rec({ event: 'cancel' }); overlay.hidden = true;
+});
+</script>
+</body>
+</html>

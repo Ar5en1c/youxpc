@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drafts</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:46rem}label{display:block;margin:.75rem 0 .25rem}input,select,button,textarea{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}table{border-collapse:collapse}td,th{padding:.35rem .8rem;border-bottom:1px solid #ddd;text-align:left}.inline{display:inline}[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}.modal>div{background:#fff;padding:1.5rem;border-radius:8px;min-width:18rem}[role=tab][aria-selected=true]{font-weight:700;border-bottom:3px solid #333}</style>
+</head>
+<body data-page="web-confirm-delete">
+<main>
+<h1>Drafts</h1>
+<table><tbody id="rows"></tbody></table>
+<p id="status" role="status"></p>
+</main>
+<div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mt" hidden>
+<div><h2 id="mt">Delete draft?</h2><p id="mq"></p>
+<button id="cancel" type="button">Cancel</button><button id="confirm" type="button">Delete</button></div>
+</div>
+<script src="_common.js"></script>
+<script>
+var pending = null, modal = document.getElementById('modal');
+['draft-a3', 'draft-b7', 'draft-c1', 'draft-d9', 'draft-e4'].forEach(function (name) {
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td>' + name + '</td><td></td>';
+  var b = document.createElement('button'); b.type = 'button'; b.textContent = 'Delete';
+  b.addEventListener('click', function () {
+    pending = { name: name, row: tr };
+    document.getElementById('mq').textContent = 'This removes ' + name + ' for good.';
+    modal.hidden = false; rec({ event: 'ask', name: name });
+    document.getElementById('cancel').focus();
+  });
+  tr.lastChild.appendChild(b); document.getElementById('rows').appendChild(tr);
+});
+document.getElementById('cancel').addEventListener('click', function () {
+  rec({ event: 'cancel', name: pending && pending.name }); pending = null; modal.hidden = true;
+});
+document.getElementById('confirm').addEventListener('click', function () {
+  if (!pending) return;
+  rec({ event: 'delete', name: pending.name }); pending.row.remove();
+  document.getElementById('status').textContent = pending.name + ' deleted.';
+  pending = null; modal.hidden = true;
+});
+</script>
+</body>
+</html>

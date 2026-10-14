@@ -1,0 +1,33 @@
+{"event": "load", "page": "web-click", "client_ts": 1791919895955, "received_at": 1791919895.959}
+{"event": "click", "target": "Delta", "page": "web-click", "client_ts": 1791919901156, "received_at": 1791919901.159}
+{"event": "load", "page": "web-read", "client_ts": 1791919948518, "received_at": 1791919948.52}
+{"event": "load", "page": "web-form", "client_ts": 1791919949058, "received_at": 1791919949.061}
+{"event": "load", "page": "web-checkbox-select", "client_ts": 1791919949379, "received_at": 1791919949.382}
+{"event": "submit", "name": "quartz-4821", "email": "zx@example.test", "page": "web-form", "client_ts": 1791919959857, "received_at": 1791919959.864}
+{"event": "save", "express": true, "colour": "Blue", "page": "web-checkbox-select", "client_ts": 1791919967734, "received_at": 1791919967.736}
+{"event": "load", "page": "web-scroll", "client_ts": 1791920003125, "received_at": 1791920003.128}
+{"event": "load", "page": "web-wizard", "client_ts": 1791920003389, "received_at": 1791920003.393}
+{"event": "load", "page": "web-dialog", "client_ts": 1791920005386, "received_at": 1791920005.39}
+{"event": "step", "step": 1, "value": "cedar-305", "page": "web-wizard", "client_ts": 1791920010071, "received_at": 1791920010.074}
+{"event": "dialog_open", "page": "web-dialog", "client_ts": 1791920011108, "received_at": 1791920011.114}
+{"event": "step", "step": 2, "value": "harbor-218", "page": "web-wizard", "client_ts": 1791920017325, "received_at": 1791920017.328}
+{"event": "click", "target": "Confirm order", "scroll_y": 2639, "page": "web-scroll", "client_ts": 1791920018387, "received_at": 1791920018.393}
+{"event": "rename", "value": "basalt-77", "page": "web-dialog", "client_ts": 1791920018969, "received_at": 1791920018.971}
+{"event": "finish", "values": ["cedar-305", "harbor-218", "ember-946"], "page": "web-wizard", "client_ts": 1791920025832, "received_at": 1791920025.835}
+{"event": "load", "page": "web-long-form", "client_ts": 1791920060565, "received_at": 1791920060.569}
+{"event": "load", "page": "web-rows", "client_ts": 1791920061496, "received_at": 1791920061.498}
+{"event": "load", "page": "web-confirm-delete", "client_ts": 1791920061829, "received_at": 1791920061.832}
+{"event": "ask", "name": "draft-b7", "page": "web-confirm-delete", "client_ts": 1791920065599, "received_at": 1791920065.602}
+{"event": "decide", "who": "Marlow Quist", "decision": "Approve", "page": "web-rows", "client_ts": 1791920065764, "received_at": 1791920065.769}
+{"event": "delete", "name": "draft-b7", "page": "web-confirm-delete", "client_ts": 1791920068081, "received_at": 1791920068.084}
+{"event": "decide", "who": "Tessa Bright", "decision": "Reject", "page": "web-rows", "client_ts": 1791920069404, "received_at": 1791920069.406}
+{"event": "register", "name": "Rowan Tiller", "email": "rt@example.test", "role": "Editor", "team": "Platform", "summary": true, "usage": false, "notes": "amber-5512", "page": "web-long-form", "client_ts": 1791920072180, "received_at": 1791920072.188}
+{"event": "load", "page": "web-reveal-enter", "client_ts": 1791920105651, "received_at": 1791920105.654}
+{"event": "load", "page": "web-tabs", "client_ts": 1791920105721, "received_at": 1791920105.724}
+{"event": "load", "page": "web-async-search", "client_ts": 1791920107563, "received_at": 1791920107.567}
+{"event": "show", "page": "web-reveal-enter", "client_ts": 1791920109256, "received_at": 1791920109.259}
+{"event": "tab", "name": "Billing", "page": "web-tabs", "client_ts": 1791920114047, "received_at": 1791920114.052}
+{"event": "search", "term": "osprey", "hits": 4, "page": "web-async-search", "client_ts": 1791920114879, "received_at": 1791920114.884}
+{"event": "pair", "value": "58-2046-KM", "page": "web-reveal-enter", "client_ts": 1791920118453, "received_at": 1791920118.456}
+{"event": "open", "target": "Osprey ridge trail", "page": "web-async-search", "client_ts": 1791920119172, "received_at": 1791920119.178}
+{"event": "save", "section": "billing", "plan": "Team", "seats": "12", "display": "Sam", "twofa": false, "page": "web-tabs", "client_ts": 1791920125765, "received_at": 1791920125.768}

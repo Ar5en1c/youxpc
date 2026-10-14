@@ -5,7 +5,7 @@
   "on_failure": "stop",
   "params": {
     "folder_name": {
-      "description": "Name for the new folder, e.g. 'ghost-os-demo'",
+      "description": "Name for the new folder, e.g. 'youxpc-demo'",
       "required": true,
       "type": "string"
     }

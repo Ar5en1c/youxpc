@@ -1,0 +1,80 @@
+[
+ {
+  "task": "web-click",
+  "tool_uses": 10,
+  "duration_ms": 24666,
+  "agent_tokens": 69104
+ },
+ {
+  "task": "web-form",
+  "tool_uses": 12,
+  "duration_ms": 30513,
+  "agent_tokens": 70029
+ },
+ {
+  "task": "web-checkbox-select",
+  "tool_uses": 16,
+  "duration_ms": 37472,
+  "agent_tokens": 71969
+ },
+ {
+  "task": "web-read",
+  "tool_uses": 7,
+  "duration_ms": 18327,
+  "agent_tokens": 67104
+ },
+ {
+  "task": "web-scroll",
+  "tool_uses": 13,
+  "duration_ms": 33281,
+  "agent_tokens": 74830
+ },
+ {
+  "task": "web-dialog",
+  "tool_uses": 15,
+  "duration_ms": 34476,
+  "agent_tokens": 71699
+ },
+ {
+  "task": "web-wizard",
+  "tool_uses": 17,
+  "duration_ms": 39952,
+  "agent_tokens": 72272
+ },
+ {
+  "task": "web-rows",
+  "tool_uses": 9,
+  "duration_ms": 26625,
+  "agent_tokens": 75489
+ },
+ {
+  "task": "web-long-form",
+  "tool_uses": 18,
+  "duration_ms": 30011,
+  "agent_tokens": 73859
+ },
+ {
+  "task": "web-confirm-delete",
+  "tool_uses": 10,
+  "duration_ms": 24863,
+  "agent_tokens": 75018
+ },
+ {
+  "task": "web-tabs",
+  "tool_uses": 17,
+  "duration_ms": 36667,
+  "agent_tokens": 72701
+ },
+ {
+  "task": "web-async-search",
+  "tool_uses": 14,
+  "duration_ms": 31331,
+  "agent_tokens": 71427
+ },
+ {
+  "task": "web-reveal-enter",
+  "tool_uses": 10,
+  "duration_ms": 30451,
+  "agent_tokens": 70366
+ }
+]

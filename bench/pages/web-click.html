@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Button panel</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:42rem}label{display:block;margin:.75rem 0 .25rem}input,select,button{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}</style>
+</head>
+<body data-page="web-click">
+<main>
+<h1>Button panel</h1>
+<p>Five buttons are listed below.</p>
+<div class="row">
+<button type="button">Alpha</button>
+<button type="button">Bravo</button>
+<button type="button">Charlie</button>
+<button type="button">Delta</button>
+<button type="button">Echo</button>
+</div>
+<p id="status" role="status">Nothing pressed yet.</p>
+</main>
+<script src="_common.js"></script>
+<script>
+document.querySelectorAll('button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    rec({ event: 'click', target: b.textContent.trim() });
+    document.getElementById('status').textContent = 'Last pressed: ' + b.textContent.trim();
+  });
+});
+</script>
+</body>
+</html>

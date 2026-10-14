@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Ghost OS Vision Sidecar — HTTP server for VLM grounding and element detection.
+YouxPC Vision Sidecar — HTTP server for VLM grounding and element detection.
 
-Runs on localhost:9876. Ghost OS v2 (Swift) calls this when the AX tree
+Runs on localhost:9876. YouxPC v2 (Swift) calls this when the AX tree
 can't find what the agent needs (web apps, dynamic content, etc.).
 
 Architecture:
@@ -27,7 +27,7 @@ Usage:
   python3 server.py --version                 # Print version
 """
 
-__version__ = "2.2.1"
+__version__ = "0.1.0"
 
 import argparse
 import base64
@@ -58,8 +58,8 @@ def resolve_model_path(explicit_path=None):
     """
     Find the ShowUI-2B model in order of priority:
       1. Explicit --model-path argument
-      2. /opt/homebrew/share/ghost-os/models/ShowUI-2B/ (Homebrew install)
-      3. ~/.ghost-os/models/ShowUI-2B/ (user-local install)
+      2. /opt/homebrew/share/youxpc/models/ShowUI-2B/ (Homebrew install)
+      3. ~/.youxpc/models/ShowUI-2B/ (user-local install)
       4. ~/.shadow/models/llm/ShowUI-2B-bf16-8bit/ (legacy Shadow path)
 
     Returns the first path that exists and contains model.safetensors,
@@ -71,8 +71,8 @@ def resolve_model_path(explicit_path=None):
         candidates.append(explicit_path)
 
     candidates.extend([
-        "/opt/homebrew/share/ghost-os/models/ShowUI-2B",
-        str(Path.home() / ".ghost-os/models/ShowUI-2B"),
+        "/opt/homebrew/share/youxpc/models/ShowUI-2B",
+        str(Path.home() / ".youxpc/models/ShowUI-2B"),
         str(Path.home() / ".shadow/models/llm/ShowUI-2B-bf16-8bit"),
     ])
 
@@ -85,15 +85,15 @@ def resolve_model_path(explicit_path=None):
             pytorch_bin = os.path.join(path, "pytorch_model.bin")
             if os.path.isfile(pytorch_bin):
                 log(f"WARNING: Model at {path} is in PyTorch format (pytorch_model.bin). "
-                    f"Ghost OS requires MLX safetensors format. "
-                    f"Fix: rm -rf {path} && ghost setup")
+                    f"YouxPC requires MLX safetensors format. "
+                    f"Fix: rm -rf {path} && youxpc setup")
             elif os.path.isfile(config):
                 log(f"WARNING: Model at {path} has config.json but no model.safetensors. "
                     f"Download may be incomplete. "
-                    f"Fix: rm -rf {path} && ghost setup")
+                    f"Fix: rm -rf {path} && youxpc setup")
 
     # Return first candidate for error message
-    return candidates[0] if candidates else str(Path.home() / ".ghost-os/models/ShowUI-2B")
+    return candidates[0] if candidates else str(Path.home() / ".youxpc/models/ShowUI-2B")
 
 
 # ── Model State (lazy-loaded, thread-safe) ─────────────────────────
@@ -184,7 +184,7 @@ def _vlm_ground(image_path: str, description: str, screen_w: float, screen_h: fl
     img = Image.open(image_path)
     max_edge = 1280
     w, h = img.size
-    _f = tempfile.NamedTemporaryFile(suffix=".jpg", prefix="ghost_vlm_", delete=False)
+    _f = tempfile.NamedTemporaryFile(suffix=".jpg", prefix="youxpc_vlm_", delete=False)
     resized_path = _f.name
     _f.close()
     if max(w, h) > max_edge:
@@ -395,7 +395,7 @@ class VisionHandler(BaseHTTPRequestHandler):
                 crop_h = y2 - y1
 
                 # Calculate pixel coordinates for cropping
-                # The image from Ghost OS is already at 1280px width (logical-ish)
+                # The image from YouxPC is already at 1280px width (logical-ish)
                 # We need to scale crop_box from logical points to image pixels
                 img_w, img_h = img.size
                 scale_x = img_w / screen_w
@@ -409,7 +409,7 @@ class VisionHandler(BaseHTTPRequestHandler):
                 crop = img.crop((px1, py1, px2, py2))
 
                 # Save crop to temp file
-                _cf = tempfile.NamedTemporaryFile(suffix=".png", prefix="ghost_crop_", delete=False)
+                _cf = tempfile.NamedTemporaryFile(suffix=".png", prefix="youxpc_crop_", delete=False)
                 crop_path = _cf.name
                 _cf.close()
                 crop.save(crop_path)
@@ -431,7 +431,7 @@ class VisionHandler(BaseHTTPRequestHandler):
                     pass
             else:
                 # Full-screen grounding
-                _ff = tempfile.NamedTemporaryFile(suffix=".png", prefix="ghost_full_", delete=False)
+                _ff = tempfile.NamedTemporaryFile(suffix=".png", prefix="youxpc_full_", delete=False)
                 img_path = _ff.name
                 _ff.close()
                 img.save(img_path)
@@ -464,7 +464,7 @@ class VisionHandler(BaseHTTPRequestHandler):
             "elements": [],
             "count": 0,
             "note": "YOLO element detection not yet implemented. Use /ground for VLM-based element finding.",
-            "suggestion": "Use ghost_find (AX tree) first, fall back to /ground for specific elements.",
+            "suggestion": "Use pc_find (AX tree) first, fall back to /ground for specific elements.",
         })
 
     def _handle_parse(self, data: dict):
@@ -476,7 +476,7 @@ class VisionHandler(BaseHTTPRequestHandler):
         self._send_json(200, {
             "elements": [],
             "context": "Screen parsing not yet implemented.",
-            "suggestion": "Use ghost_context for AX-based context, ghost_screenshot + /ground for visual grounding.",
+            "suggestion": "Use pc_context for AX-based context, pc_screenshot + /ground for visual grounding.",
         })
 
     def _send_json(self, status: int, data: dict):
@@ -520,11 +520,11 @@ def _signal_handler(signum, frame):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        prog="ghost-vision",
-        description="Ghost OS Vision Sidecar — VLM grounding server for UI element detection",
+        prog="youxpc-vision",
+        description="YouxPC Vision Sidecar — VLM grounding server for UI element detection",
     )
     parser.add_argument(
-        "--version", action="version", version=f"ghost-vision {__version__}",
+        "--version", action="version", version=f"youxpc-vision {__version__}",
     )
     parser.add_argument(
         "--host", default="127.0.0.1",
@@ -532,8 +532,8 @@ def parse_args():
     )
     parser.add_argument(
         "--port", type=int,
-        default=int(os.environ.get("GHOST_VISION_PORT", "9876")),
-        help="Port to listen on (default: 9876, or GHOST_VISION_PORT env var)",
+        default=int(os.environ.get("YOUXPC_VISION_PORT", "9876")),
+        help="Port to listen on (default: 9876, or YOUXPC_VISION_PORT env var)",
     )
     parser.add_argument(
         "--model-path", default=None,
@@ -583,7 +583,7 @@ def main():
     signal.signal(signal.SIGTERM, _signal_handler)
     signal.signal(signal.SIGINT, _signal_handler)
 
-    log(f"Ghost OS Vision Sidecar v{__version__} starting on {HOST}:{PORT}")
+    log(f"YouxPC Vision Sidecar v{__version__} starting on {HOST}:{PORT}")
     log(f"ShowUI-2B model path: {MODEL_PATH}")
     log(f"Model exists: {os.path.isdir(MODEL_PATH)}")
     _check_transformers_version()

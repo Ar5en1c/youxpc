@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trail finder</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:46rem}label{display:block;margin:.75rem 0 .25rem}input,select,button,textarea{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}table{border-collapse:collapse}td,th{padding:.35rem .8rem;border-bottom:1px solid #ddd;text-align:left}.inline{display:inline}[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}.modal>div{background:#fff;padding:1.5rem;border-radius:8px;min-width:18rem}[role=tab][aria-selected=true]{font-weight:700;border-bottom:3px solid #333}</style>
+</head>
+<body data-page="web-async-search">
+<main>
+<h1>Trail finder</h1>
+<label for="q">Search trails</label><input id="q" type="text" autocomplete="off">
+<p id="hint" role="status">Type at least three letters.</p>
+<div id="results"></div>
+<p id="opened" role="status"></p>
+</main>
+<script src="_common.js"></script>
+<script>
+var trails = ['Osprey point', 'Osprey ridge trail (closed)', 'Osprey ridge trail', 'Otter creek loop', 'Heron marsh walk',
+              'Osprey ridge overlook', 'Kestrel gap', 'Marten hollow'];
+var timer = null, q = document.getElementById('q');
+function search() {
+  var term = q.value.trim().toLowerCase(), box = document.getElementById('results');
+  box.textContent = '';
+  if (term.length < 3) { document.getElementById('hint').textContent = 'Type at least three letters.'; return; }
+  document.getElementById('hint').textContent = 'Searching…';
+  clearTimeout(timer);
+  timer = setTimeout(function () {
+    var hits = trails.filter(function (t) { return t.toLowerCase().indexOf(term) >= 0; });
+    rec({ event: 'search', term: term, hits: hits.length });
+    document.getElementById('hint').textContent = hits.length + ' result' + (hits.length === 1 ? '' : 's') + '.';
+    hits.forEach(function (t) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = t;
+      b.addEventListener('click', function () {
+        rec({ event: 'open', target: t }); document.getElementById('opened').textContent = 'Opened: ' + t;
+      });
+      box.appendChild(b); box.appendChild(document.createElement('br'));
+    });
+  }, 700);
+}
+q.addEventListener('input', search);
+</script>
+</body>
+</html>

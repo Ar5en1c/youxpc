@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account settings</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:46rem}label{display:block;margin:.75rem 0 .25rem}input,select,button,textarea{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}table{border-collapse:collapse}td,th{padding:.35rem .8rem;border-bottom:1px solid #ddd;text-align:left}.inline{display:inline}[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}.modal>div{background:#fff;padding:1.5rem;border-radius:8px;min-width:18rem}[role=tab][aria-selected=true]{font-weight:700;border-bottom:3px solid #333}</style>
+</head>
+<body data-page="web-tabs">
+<main>
+<h1>Account settings</h1>
+<div role="tablist" aria-label="Sections">
+<button role="tab" id="t-profile" aria-selected="true" aria-controls="p-profile" type="button">Profile</button>
+<button role="tab" id="t-billing" aria-selected="false" aria-controls="p-billing" type="button">Billing</button>
+<button role="tab" id="t-security" aria-selected="false" aria-controls="p-security" type="button">Security</button>
+</div>
+<section role="tabpanel" id="p-profile" aria-labelledby="t-profile">
+<label for="display">Display name</label><input id="display" type="text" value="Sam">
+<div class="row"><button type="button" data-save="profile">Save</button></div>
+</section>
+<section role="tabpanel" id="p-billing" aria-labelledby="t-billing" hidden>
+<label for="plan">Plan</label>
+<select id="plan"><option>Free</option><option>Team</option><option>Business</option></select>
+<label for="seats">Seats</label><input id="seats" type="text" value="1" autocomplete="off">
+<div class="row"><button type="button" data-save="billing">Save</button></div>
+</section>
+<section role="tabpanel" id="p-security" aria-labelledby="t-security" hidden>
+<div class="row"><input id="twofa" type="checkbox"><label class="inline" for="twofa">Require two-step sign-in</label></div>
+<div class="row"><button type="button" data-save="security">Save</button></div>
+</section>
+<p id="status" role="status"></p>
+</main>
+<script src="_common.js"></script>
+<script>
+document.querySelectorAll('[role=tab]').forEach(function (tab) {
+  tab.addEventListener('click', function () {
+    document.querySelectorAll('[role=tab]').forEach(function (t) { t.setAttribute('aria-selected', String(t === tab)); });
+    document.querySelectorAll('[role=tabpanel]').forEach(function (p) { p.hidden = p.id !== tab.getAttribute('aria-controls'); });
+    rec({ event: 'tab', name: tab.textContent });
+  });
+});
+document.querySelectorAll('[data-save]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    rec({ event: 'save', section: b.dataset.save, plan: document.getElementById('plan').value,
+          seats: document.getElementById('seats').value, display: document.getElementById('display').value,
+          twofa: document.getElementById('twofa').checked });
+    document.getElementById('status').textContent = 'Saved ' + b.dataset.save + ' settings.';
+  });
+});
+</script>
+</body>
+</html>

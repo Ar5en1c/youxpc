@@ -9,37 +9,37 @@ let concurrencySettings: [SwiftSetting] = [
 ]
 
 let package = Package(
-    name: "GhostOS",
+    name: "YouxPC",
     platforms: [
         .macOS(.v14),
     ],
     products: [
-        .library(name: "GhostOS", targets: ["GhostOS"]),
-        .executable(name: "ghost", targets: ["ghost"]),
+        .library(name: "YouxPC", targets: ["YouxPC"]),
+        .executable(name: "youxpc", targets: ["YouxPCCLI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/steipete/AXorcist.git", from: "0.1.0"),
     ],
     targets: [
         .target(
-            name: "GhostOS",
+            name: "YouxPC",
             dependencies: [
                 .product(name: "AXorcist", package: "AXorcist"),
             ],
-            path: "Sources/GhostOS",
+            path: "Sources/YouxPC",
             swiftSettings: concurrencySettings,
             linkerSettings: [.linkedFramework("ScreenCaptureKit")]
         ),
         .executableTarget(
-            name: "ghost",
-            dependencies: ["GhostOS"],
-            path: "Sources/ghost",
+            name: "YouxPCCLI",
+            dependencies: ["YouxPC"],
+            path: "Sources/CLI",
             swiftSettings: concurrencySettings
         ),
         .testTarget(
-            name: "GhostOSTests",
-            dependencies: ["GhostOS"],
-            path: "Tests/GhostOSTests",
+            name: "YouxPCTests",
+            dependencies: ["YouxPC"],
+            path: "Tests/YouxPCTests",
             swiftSettings: concurrencySettings
         ),
     ],

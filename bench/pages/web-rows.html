@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Access requests</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:2rem;max-width:46rem}label{display:block;margin:.75rem 0 .25rem}input,select,button,textarea{font:inherit;padding:.4rem .7rem}button{margin:.25rem .25rem .25rem 0}.row{margin:1rem 0}table{border-collapse:collapse}td,th{padding:.35rem .8rem;border-bottom:1px solid #ddd;text-align:left}.inline{display:inline}[hidden]{display:none!important}.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}.modal>div{background:#fff;padding:1.5rem;border-radius:8px;min-width:18rem}[role=tab][aria-selected=true]{font-weight:700;border-bottom:3px solid #333}</style>
+</head>
+<body data-page="web-rows">
+<main>
+<h1>Access requests</h1>
+<p>Six people have asked for access.</p>
+<table>
+<thead><tr><th>Name</th><th>Team</th><th>Decision</th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+<p id="status" role="status"></p>
+</main>
+<script src="_common.js"></script>
+<script>
+var people = [["Ines Varga","Billing"],["Marlow Quist","Platform"],["Dara Okafor","Design"],
+              ["Tessa Bright","Support"],["Jonas Feld","Platform"],["Priya Raman","Billing"]];
+var body = document.getElementById('rows');
+people.forEach(function (p) {
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td>' + p[0] + '</td><td>' + p[1] + '</td><td></td>';
+  ['Approve', 'Reject'].forEach(function (label) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = label;
+    b.addEventListener('click', function () {
+      rec({ event: 'decide', who: p[0], decision: label });
+      tr.lastChild.textContent = label === 'Approve' ? 'Approved' : 'Rejected';
+      document.getElementById('status').textContent = p[0] + ': ' + tr.lastChild.textContent.toLowerCase() + '.';
+    });
+    tr.lastChild.appendChild(b);
+  });
+  body.appendChild(tr);
+});
+</script>
+</body>
+</html>

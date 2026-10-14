@@ -1,130 +1,38 @@
-# Contributing to Ghost OS
+# Contributing to YouxPC
 
-Ghost OS is open source and we welcome contributions.
+Thanks for looking. The most useful things, in order:
 
-## What We Need Help With
+## 1. Tell us where it breaks
 
-### Recipes
-The most impactful contribution is a new recipe. Pick an app, figure out the workflow, save it as a recipe JSON, test it 3+ times, and submit a PR.
+YouxPC has been tested on Chrome, Brave, Calculator, TextEdit and Terminal. Every other app is unknown territory. Try it on the apps you use and open an issue (there is a template) with the app and version, what you asked for, the `pc_snapshot` output and the receipt lines from `youxpc receipts --last 10`. Remove anything private first.
 
-Good recipe candidates:
-- Slack: send a message, reply to a thread
-- Google Calendar: create an event
-- Finder: organize files, create folders
-- System Settings: toggle settings
-- Any web app: login, fill forms, extract data
+## 2. Write a benchmark task
 
-### Testing on Different Apps
-Ghost OS should work with every app. Test it with apps you use daily and report what works and what doesn't. File issues with:
-- Which app and version
-- What tool you called
-- What happened vs what you expected
-- The output from `ghost doctor`
+Every harder task in `bench/` was written by the project's author, which is the benchmark's biggest weakness. A task written by someone else is worth more than another feature. A web task is one HTML file in `bench/pages/` that reports what the user did, plus a checker in `bench/tasks.py`; `web-rows.html` and its checker are a short example. Tasks that YouxPC fails are especially welcome.
 
-### Bug Fixes
-Check the [issues](https://github.com/ghostwright/ghost-os/issues) page. Issues labeled `good first issue` are a great starting point.
+## 3. Run the benchmark somewhere else
 
-## Development Setup
+Another Mac, another model, another tool with its settings done properly. `bench/RESULTS.md` ends with the commands. If you know Peekaboo, Cua Driver or Playwright MCP well and think they were run badly here, say so and it will be re-run.
+
+## 4. Fix something
 
 ```bash
-git clone https://github.com/ghostwright/ghost-os.git
-cd ghost-os
+git clone https://github.com/Ar5en1c/youxpc.git
+cd youxpc
 swift build
+swift test
+python3 -m unittest discover bench/tests
 ```
 
-Requirements:
-- macOS 14+
-- Swift 6.2+ (install via [swiftly](https://github.com/swiftlang/swiftly))
-- Accessibility permission for your terminal app
-- Screen Recording permission (optional, for screenshots)
+`CLAUDE.md` is the developer guide: the layout, the conventions and a long list of things that cost time to find out. Read its "Technical Gotchas" before changing how clicks, typing or snapshots work.
 
-The project depends on [AXorcist](https://github.com/steipete/AXorcist) which is referenced as a local package at `../AXorcist`. Clone it alongside ghost-os:
+Rules that matter:
 
-```
-your-workspace/
-├── AXorcist/      # git clone https://github.com/steipete/AXorcist
-└── ghost-os/      # this repo
-```
+- No app-specific hacks. A fix has to be generic.
+- Nothing is written to stdout except the MCP protocol. Log through `Log`.
+- An error tells the agent what to do next.
+- If a change affects behaviour an agent sees, say how you tested it.
 
-## Project Structure
+## Credit
 
-```
-Sources/
-├── GhostOS/                    # Library (the MCP server logic)
-│   ├── MCP/                    # MCPServer, MCPTools, MCPDispatch
-│   ├── Perception/             # ghost_context, ghost_find, ghost_read, etc.
-│   ├── Actions/                # ghost_click, ghost_type, ghost_hotkey, etc.
-│   ├── Recipes/                # RecipeEngine, RecipeStore, RecipeTypes
-│   ├── Screenshot/             # ScreenCaptureKit wrapper
-│   └── Common/                 # Logger, Types, LocatorBuilder
-└── ghost/                      # CLI (thin entry point)
-    ├── main.swift              # ghost mcp, setup, doctor, status
-    ├── SetupWizard.swift       # Interactive first-run setup
-    └── Doctor.swift            # Diagnostic tool
-```
-
-## Writing a Recipe
-
-Recipes are JSON files stored in `~/.ghost-os/recipes/`. Here's the structure:
-
-```json
-{
-    "schema_version": 2,
-    "name": "my-recipe",
-    "description": "What this recipe does",
-    "app": "Google Chrome",
-    "params": {
-        "query": {
-            "type": "string",
-            "description": "What to search for",
-            "required": true
-        }
-    },
-    "preconditions": {
-        "app_running": "Google Chrome",
-        "url_contains": "example.com"
-    },
-    "steps": [
-        {
-            "id": 1,
-            "action": "click",
-            "target": {
-                "criteria": [{"attribute": "AXRole", "value": "AXButton"}],
-                "computedNameContains": "Search"
-            },
-            "wait_after": {
-                "condition": "elementExists",
-                "value": "Results",
-                "timeout": 5
-            },
-            "note": "Click the search button"
-        }
-    ],
-    "on_failure": "stop"
-}
-```
-
-**Actions:** click, type, press, hotkey, focus, scroll, wait
-
-**Wait conditions:** elementExists, elementGone, urlContains, titleContains, urlChanged, titleChanged, delay
-
-**Tips:**
-- Use `computedNameContains` for fuzzy matching ("Compose" matches "Compose" button)
-- Add `criteria` with `AXRole` to narrow matches (e.g., only buttons)
-- Always include `"criteria": []` even if empty (required by the Locator decoder)
-- Use `wait_after` instead of fixed delays
-- Test your recipe at least 3 times before submitting
-
-## Code Style
-
-- Swift 6.2 with strict concurrency
-- All logging to stderr (stdout is the MCP protocol channel)
-- No force unwraps except in tests
-- Functions over 80 lines get split
-- Errors tell the agent what to do next, not just what went wrong
-
-## Commit Messages
-
-- Concise but informative
-- Anyone reading the git log should understand what changed
-- No AI attribution lines
+YouxPC is a fork of [Ghost OS](https://github.com/ghostwright/ghost-os) by Ghostwright (MIT). Fixes that apply to both projects are worth sending upstream too.
