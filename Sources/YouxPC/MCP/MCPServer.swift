@@ -55,6 +55,9 @@ public final class MCPServer {
 
     public func run() {
         Log.info("YouxPC v\(Product.version) MCP server starting")
+        if !AXIsProcessTrusted() {
+            Log.warn("Accessibility permission is not granted to this process; tool calls will be refused until it is")
+        }
 
         // One accessibility call to an app that has stopped answering blocks for the
         // system default of about six seconds. Halve that for every call this process makes.

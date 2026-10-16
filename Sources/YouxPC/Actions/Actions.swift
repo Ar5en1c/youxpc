@@ -43,6 +43,7 @@ public enum Actions {
         let before = indexed.listedName.flatMap { $0.isEmpty ? nil : $0 }
         let listed = indexed.element.flatMap { Snapshot.currentName(of: $0.underlyingElement) } ?? before
         let renamedFrom = (before != nil && listed != before) ? before : nil
+        let row = indexed.index.flatMap { Snapshot.row(ofElement: $0, appName: appName) }
 
         let mouseButton: MouseButton = switch button {
         case "right": .right
@@ -132,7 +133,7 @@ public enum Actions {
                 data: renamed([
                     "method": "ax-native", "pointer": "virtual",
                     "element": listed ?? element.computedName() ?? query ?? domId ?? "",
-                ], from: renamedFrom)
+                ], from: renamedFrom, row: row)
             )
         }
 
@@ -151,7 +152,7 @@ public enum Actions {
                 data: renamed([
                     "method": "ax-focus-" + activated, "pointer": "virtual",
                     "element": listed ?? element.computedName() ?? query ?? domId ?? "",
-                ], from: renamedFrom)
+                ], from: renamedFrom, row: row)
             )
         }
 
@@ -166,7 +167,7 @@ public enum Actions {
                 data: renamed([
                     "method": "ax-focus", "pointer": "virtual",
                     "element": listed ?? element.computedName() ?? query ?? domId ?? "",
-                ], from: renamedFrom)
+                ], from: renamedFrom, row: row)
             )
         }
 
@@ -1230,9 +1231,10 @@ public enum Actions {
         return nil
     }
 
-    private static func renamed(_ data: [String: Any], from earlier: String?) -> [String: Any] {
-        guard let earlier else { return data }
+    private static func renamed(_ data: [String: Any], from earlier: String?, row: String? = nil) -> [String: Any] {
         var data = data
+        if let row { data["row"] = row }
+        guard let earlier else { return data }
         data["listed_as"] = earlier
         data["note"] = "This control was listed as \"\(earlier)\" in your last snapshot and has a different name now."
         return data
@@ -1325,6 +1327,8 @@ public enum Actions {
         /// an app's internal title can differ ("AllClear" for a key shown as
         /// "Clear"), and an echo that contradicts the screen hides mistakes.
         var listedName: String?
+        /// The snapshot id of the element, when it came from a snapshot.
+        var index: Int?
     }
 
     /// Resolve a pc_snapshot number to its element. With no index this is a
@@ -1339,7 +1343,7 @@ public enum Actions {
                 return IndexedTarget(element: nil, appName: appName, failure: unclear)
             }
             if let query, let entry = Snapshot.find(query: query, role: role, appName: appName) {
-                return IndexedTarget(element: Element(entry.element), appName: appName, failure: nil, listedName: entry.name)
+                return IndexedTarget(element: Element(entry.element), appName: appName, failure: nil, listedName: entry.name, index: entry.index)
             }
             return IndexedTarget(element: nil, appName: appName, failure: nil)
         }
@@ -1348,7 +1352,7 @@ public enum Actions {
             return IndexedTarget(element: nil, appName: appName, failure: result)
         case let .found(entry, pid):
             let owner = appName ?? NSRunningApplication(processIdentifier: pid)?.localizedName
-            return IndexedTarget(element: Element(entry.element), appName: owner, failure: nil, listedName: entry.name)
+            return IndexedTarget(element: Element(entry.element), appName: owner, failure: nil, listedName: entry.name, index: entry.index)
         }
     }
 

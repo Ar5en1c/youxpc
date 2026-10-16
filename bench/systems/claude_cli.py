@@ -230,6 +230,21 @@ class YouxPCSimpleHaiku(YouxPCHaiku):
 
 
 @register
+class YouxPCNoDoHaiku(YouxPCHaiku):
+    """The default profile with pc_do denied to the model, so every action is its own call.
+    The server and its tool list are unchanged; only the CLI refuses pc_do. This isolates
+    batching from everything else (tool-list size, snapshot format, ids)."""
+    description = "Same as youxpc-haiku with pc_do denied (--disallowedTools mcp__youxpc__pc_do)"
+    examples = ["youxpc-nodo-haiku"]
+
+    @classmethod
+    def matches(cls, name): return name == "youxpc-nodo-haiku"
+
+    def build_command(self, cfg_path: str) -> List[str]:
+        return super().build_command(cfg_path) + ["--disallowedTools", f"mcp__{self.server_key}__pc_do"]
+
+
+@register
 class GhostOSHaiku(ClaudeMCPSystem):
     server_key = "ghostos"
     want_pointers = False

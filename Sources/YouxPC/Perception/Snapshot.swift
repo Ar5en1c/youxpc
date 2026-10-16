@@ -664,6 +664,18 @@ public enum Snapshot {
         )
     }
 
+    /// The heading of the table row an element was listed in, if it sits in one.
+    /// Action results repeat it, so "Approve" pressed in the wrong row reads as
+    /// such before the agent moves on.
+    public static func row(ofElement number: Int, appName: String?) -> String? {
+        let pid: pid_t? = appName.flatMap { Perception.findApp(named: $0)?.processIdentifier } ?? latestPID
+        guard let pid, let state = states[pid],
+              let line = enclosingLine(ofElement: number, in: state), line.hasPrefix("row \"")
+        else { return nil }
+        let heading = line.dropFirst("row \"".count)
+        return String(heading.hasSuffix("\"") ? heading.dropLast() : heading)
+    }
+
     /// The heading line an element is listed under (its row, or its section).
     private static func enclosingLine(ofElement number: Int, in state: AppState) -> String? {
         func indent(_ text: String) -> Int { text.prefix { $0 == " " }.count }

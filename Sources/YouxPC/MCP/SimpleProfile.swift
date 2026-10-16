@@ -197,7 +197,9 @@ public enum SimpleProfile {
 
     private static func describe(_ result: ToolResult) -> String {
         let name = (result.data?["element"] as? String ?? "").replacingOccurrences(of: "\n", with: " ")
-        return name.isEmpty ? "it" : "\"\(name)\""
+        guard !name.isEmpty else { return "it" }
+        if let row = result.data?["row"] as? String { return "\"\(name)\" in row \"\(row)\"" }
+        return "\"\(name)\""
     }
 
     private static func needLook() -> [String: Any] {

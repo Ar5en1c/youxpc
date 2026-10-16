@@ -3,10 +3,16 @@
 // Maps tool names to handler functions. Wraps each call in a timeout.
 // Formats responses as MCP content arrays.
 
+import ApplicationServices
 import Foundation
 
 /// Routes MCP tool calls to the appropriate module function.
 public enum MCPDispatch {
+
+    /// Tools that work without the Accessibility grant (recipe files and status).
+    static let noAccessibilityNeeded: Set<String> = [
+        "pc_recipes", "pc_recipe_show", "pc_recipe_save", "pc_recipe_delete", "pc_learn_status",
+    ]
 
     /// Handle a tools/call request. Returns MCP-formatted result.
     /// Tools run synchronously on the main thread and are not interrupted;
@@ -23,7 +29,21 @@ public enum MCPDispatch {
 
         // Screenshot and annotate return MCP image content directly (not text-wrapped JSON)
         let response: [String: Any]
-        if SimpleProfile.isEnabled, SimpleProfile.toolNames.contains(toolName) {
+        if !AXIsProcessTrusted(), !noAccessibilityNeeded.contains(toolName) {
+            // Without the grant every read comes back empty and every press does
+            // nothing, while reporting success. Say so instead. Checked on each
+            // call because the grant can be lost while the server runs (an OS
+            // update, or the host app being rebuilt).
+            Log.warn("Accessibility permission missing; refused \(toolName)")
+            response = formatResult(
+                ToolResult(
+                    success: false,
+                    error: "Accessibility permission is not granted, so YouxPC cannot read or press anything. Nothing was done.",
+                    suggestion: "Ask the user to turn on the app that runs this MCP server (their terminal or AI app) in System Settings > Privacy & Security > Accessibility, then restart the server. `youxpc doctor` checks it."
+                ),
+                toolName: toolName
+            )
+        } else if SimpleProfile.isEnabled, SimpleProfile.toolNames.contains(toolName) {
             let policyArgs = SimpleProfile.policyArguments(toolName, args)
             if policyArgs["app"] != nil, let denied = AppPolicy.check(tool: "pc_snapshot", args: policyArgs) {
                 response = formatResult(denied, toolName: toolName)

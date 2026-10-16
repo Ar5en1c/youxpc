@@ -311,6 +311,7 @@ public enum ActionSequence {
               let element = result.data?["element"] as? String, !element.isEmpty
         else { return step.label }
         var shown = "\(step.label) \"\(element.replacingOccurrences(of: "\n", with: " "))\""
+        if let row = result.data?["row"] as? String { shown += " in row \"\(row)\"" }
         if let earlier = result.data?["listed_as"] as? String { shown += " (listed as \"\(earlier)\" before)" }
         return shown
     }

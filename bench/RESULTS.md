@@ -1,6 +1,23 @@
 # Benchmark results
 
-Date: 13 October 2026. Machine: Apple M1, 16 GB, macOS 27. One machine, one day. Six passes, newest first.
+Dates: 13 October 2026 (first six passes) and 16 October 2026 (seventh). Machine: Apple M1, 16 GB, macOS 27. Seven passes, newest first.
+
+## Seventh pass: pc_do switched off
+
+A reader asked how much of YouxPC's speed comes from `pc_do` (several actions in one call), and whether planning a whole form in one call leads to more mistakes. This pass answers that. Same model (Claude Haiku 5.5 through `claude -p`), same seventeen tasks, three trials, one M1, 16 October 2026, results in `results/nodo-haiku-v1`. Two arms ran back to back on the same build:
+
+- `youxpc-haiku`: the default profile, as in the passes above.
+- `youxpc-nodo-haiku`: the same server and tool list, with `pc_do` denied by the CLI (`--disallowedTools mcp__youxpc__pc_do`), so every action is its own model call. Nothing else changes.
+
+| Arm | Runs passed | Total time | Tool calls | Tokens |
+|---|---|---|---|---|
+| With `pc_do` | 51 of 51 | 594 s | 219 | 2,232,318 |
+| Without `pc_do` | 51 of 51 | 780 s | 444 | 3,060,005 |
+
+- Without `pc_do`, runs took 31% longer, made about twice the tool calls and read 37% more tokens. With `pc_do` the model used it in 18 of 51 runs.
+- Most of the difference is Calculator, where every key is a button: 161 s and 36 calls with `pc_do`, 289 s and 226 calls without. On the web tasks it was 413 s against 473 s (177 calls against 212). TextEdit was the same.
+- Mistakes: none in either arm. The seven-field form with the pre-ticked box (`web-long-form`) passed 3 of 3 both ways, in 5 to 6 calls with `pc_do` and 11 to 12 without, at about the same time (17 s and 18 s median).
+- Compared with the sixth pass (a different day, so treat it as rough): without `pc_do` YouxPC made about as many calls as Cua Driver (444 against 441) but took 780 s against 1,287 s. So batching explains part of the time gap, not all of it. The per-call cost, including the size of the tool list each call carries, is the other part. This pass does not separate those.
 
 ## Sixth pass: other tools, same model
 
@@ -290,6 +307,8 @@ python3 bench/run.py --yes --trials 3 --tasks all+hard \
 # Sixth pass: other tools (install them first; Cua Driver needs its own permissions granted)
 #   --systems youxpc-haiku,peekaboo-haiku,peekaboo-fg-haiku,cua-haiku      on all+hard
 #   --systems playwright-haiku                                             on the web tasks only
+# Seventh pass: pc_do switched off
+#   --systems youxpc-haiku,youxpc-nodo-haiku                                on all+hard
 # Fourth pass: the same with the Codex CLI as the model
 #   --systems codex-youxpc,codex-youxpc-simple,codex-ghostos
 python3 bench/analyze.py bench/results/my-run/runs.jsonl
